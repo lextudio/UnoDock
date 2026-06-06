@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="UnoDock/UnoDock.csproj" />
+  <Project Path="UnoDock.Themes.VS2010/UnoDock.Themes.VS2010.csproj" />
+  <Project Path="UnoDock.Themes.VS2013/UnoDock.Themes.VS2013.csproj" />
+  <Project Path="UnoDock.Sample/UnoDock.Sample.csproj" />
+  <Project Path="UnoDock.Tests/UnoDock.Tests.csproj" />
+</Solution>

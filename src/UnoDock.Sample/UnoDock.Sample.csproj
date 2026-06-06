@@ -1,0 +1,26 @@
+<Project Sdk="Uno.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <RuntimeIdentifiers>osx-arm64;osx-x64;linux-x64;win-x64</RuntimeIdentifiers>
+    <OutputType>Exe</OutputType>
+    <UnoSingleProject>true</UnoSingleProject>
+    <UnoFeatures>SkiaRenderer</UnoFeatures>
+    <AssemblyName>UnoDock.Sample</AssemblyName>
+    <RootNamespace>UnoDock.Sample</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>$(NoWarn);UNO0006</NoWarn>
+    <GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <UseWinUI>true</UseWinUI>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\UnoDock\UnoDock.csproj" />
+    <ProjectReference Include=".\..\UnoDock.Themes.VS2013\UnoDock.Themes.VS2013.csproj" />
+    <ProjectReference Include=".\..\UnoDock.Themes.VS2010\UnoDock.Themes.VS2010.csproj" />
+    <PackageReference Include="LeXtudio.DevFlow.Agent.Uno" />
+  </ItemGroup>
+</Project>

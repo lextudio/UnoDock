@@ -1,0 +1,42 @@
+<Project Sdk="Uno.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <RuntimeIdentifiers>osx-arm64;osx-x64;linux-x64;win-x64</RuntimeIdentifiers>
+    <OutputType>Exe</OutputType>
+    <UnoSingleProject>true</UnoSingleProject>
+    <UnoFeatures>SkiaRenderer</UnoFeatures>
+    <AssemblyName>UnoDock.Tests</AssemblyName>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsTestProject>true</IsTestProject>
+    <!-- EnableDefaultCompileItems picks up Compat/TestBootstrap.cs. -->
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);1574;1591;NUnit2005;UNO0006</NoWarn>
+    <GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UnoDock\UnoDock.csproj" />
+  </ItemGroup>
+
+  <!-- Pure-model upstream test files (no DockingManager/TestHost/FlaUI/WPF window). -->
+  <ItemGroup>
+    <Compile Include="..\..\externals\AvalonDock\source\AutomationTest\AvalonDockTest\LayoutModelTests.cs"
+             Link="LayoutModelTests.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\AutomationTest\AvalonDockTest\LayoutSerializationUnitTests.cs"
+             Link="LayoutSerializationUnitTests.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\AutomationTest\AvalonDockTest\LayoutContentPropertyTests.cs"
+             Link="LayoutContentPropertyTests.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\AutomationTest\AvalonDockTest\DockingUtilitiesTest.cs"
+             Link="DockingUtilitiesTest.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\AutomationTest\AvalonDockTest\LayoutDocumentDockingRegressionTests.cs"
+             Link="LayoutDocumentDockingRegressionTests.cs" />
+  </ItemGroup>
+</Project>

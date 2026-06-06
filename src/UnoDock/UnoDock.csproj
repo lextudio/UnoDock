@@ -1,0 +1,181 @@
+<Project Sdk="Uno.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;osx-x64</RuntimeIdentifiers>
+    <AssemblyName>UnoDock</AssemblyName>
+    <RootNamespace>AvalonDock</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultUnoItems>false</EnableDefaultUnoItems>
+    <UnoFeatures>SkiaRenderer</UnoFeatures>
+    <NoWarn>$(NoWarn);0436;1574;1591;8632;UNO0006</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>LeXtudio</Authors>
+    <Company>LeXtudio</Company>
+    <Version>$(GitVersion_SemVer)</Version>
+    <Description>Uno Platform port of AvalonDock docking layout controls.</Description>
+    <PackageId>LeXtudio.UnoDock</PackageId>
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MS-PL</PackageLicenseExpression>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <PackageIcon>company_logo_512.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/lextudio/UnoDock</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/lextudio/UnoDock</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <UseNuGetPackages>true</UseNuGetPackages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <UseWinUI>true</UseWinUI>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <DefineConstants>$(DefineConstants);WINDOWS_APP_SDK</DefineConstants>
+  </PropertyGroup>
+
+  <!-- HAS_UNO is defined for all targets so shared .cs files (linked from externals)
+       can use #if !HAS_UNO to exclude WPF-only code without depending on WINDOWS. -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);HAS_UNO</DefineConstants>
+  </PropertyGroup>
+
+  <!-- WPF API surface shim. Local project reference during development.
+       Exposed both globally AND via the `winshims::` extern alias so we can
+       disambiguate types (e.g. ContentPropertyAttribute) that Uno.Xaml also
+       defines in the same System.Windows.* namespace. -->
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'false'">
+    <ProjectReference Include="..\..\..\WindowsShims\src\LeXtudio.Windows\LeXtudio.Windows.csproj">
+      <Aliases>global,winshims</Aliases>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
+    <PackageReference Include="LeXtudio.Windows" Aliases="global,winshims" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\images\company_logo_512.png" Pack="true" PackagePath="/" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="/" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\externals\AvalonDock\LICENSE" Pack="true" PackagePath="licenses/avalondock_LICENSE.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="GlobalUsings.cs" />
+    <Compile Include="DockLog.cs" />
+    <Compile Include="Compatibility\**\*.cs" />
+    <Compile Include="Converters\**\*.cs" />
+    <Compile Include="Compat\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>UnoDock.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- Phase 1: link the AvalonDock model layer (Layout/*) from the submodule.
+       LayoutElement.cs is excluded and forked (Layout/LayoutElement.cs) because
+       Uno's DependencyObject source generator requires DO-derived types to be
+       declared `partial` — the only change is the `partial` keyword. -->
+  <!-- Link upstream Layout files; exclude those forked into src/UnoDock/Layout/.
+       Forked files:
+         - LayoutElement.cs: added 'partial' (Uno DO generator requires it)
+         - LayoutPanel, LayoutRoot, LayoutContent, LayoutAnchorablePane,
+           LayoutDocumentPane, LayoutAnchorablePaneGroup, LayoutDocumentPaneGroup,
+           LayoutAnchorGroup, LayoutAnchorSide, LayoutAnchorableFloatingWindow,
+           LayoutDocumentFloatingWindow:
+           changed [ContentProperty("X")] → [ContentProperty(Name = "X")] so
+           the Uno XAML source generator recognises the content property. -->
+  <ItemGroup>
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\**\*.cs"
+             Exclude="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\**\*.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutElement.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutPanel.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutRoot.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutContent.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorablePane.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutDocumentPane.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorablePaneGroup.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutDocumentPaneGroup.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorGroup.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorSide.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorableFloatingWindow.cs;
+                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutDocumentFloatingWindow.cs"
+             Link="Layout\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- Forked layout files with patched ContentProperty / partial attributes. -->
+    <Compile Include="Layout\*.cs" />
+  </ItemGroup>
+
+  <!-- Themes: Theme base class + Generic.xaml resource dictionary. -->
+  <ItemGroup>
+    <Compile Include="Themes\DictionaryTheme.cs" />
+    <Compile Include="Themes\Theme.cs" />
+    <Page Include="Themes\Generic.xaml" SubType="Designer" Generator="MSBuild:Compile" />
+  </ItemGroup>
+
+  <!-- Phase 2: Controls — forked files live in src/UnoDock/Controls/; linked easy files below. -->
+  <ItemGroup>
+    <Compile Include="Controls\**\*.cs" />
+  </ItemGroup>
+
+  <!-- Phase 2: Easy Controls — pure interfaces/enums/helpers with no WPF UI. -->
+  <ItemGroup>
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\IOverlayWindow.cs"          Link="Controls\IOverlayWindow.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\IOverlayWindowHost.cs"      Link="Controls\IOverlayWindowHost.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\IDropTarget.cs"             Link="Controls\IDropTarget.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\DropTargetType.cs"          Link="Controls\DropTargetType.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\ReentrantFlag.cs"           Link="Controls\ReentrantFlag.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\FullWeakDictionary.cs"      Link="Controls\FullWeakDictionary.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\WeakDictionary.cs"          Link="Controls\WeakDictionary.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\WindowActivateEventArgs.cs" Link="Controls\WindowActivateEventArgs.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayWindow.cs" Link="Controls\OverlayWindow.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayIndicatorVisibility.cs" Link="Controls\OverlayIndicatorVisibility.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayIndicatorContext.cs" Link="Controls\OverlayIndicatorContext.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayPreviewRules.cs" Link="Controls\OverlayPreviewRules.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayTabTargetRules.cs" Link="Controls\OverlayTabTargetRules.cs" />
+    <!-- IAdjustableSizeLayout and ILayoutControl are already picked up by the Layout/**/*.cs glob above. -->
+    <!-- LayoutGridResizerControl forked to Controls/ — WinUI Thumb is sealed so can't be subclassed. -->
+    <!-- LayoutGridControl: shared core linked from externals (partial class).
+         LayoutGridControl.uno.cs in Controls/ provides the Uno-specific partial. -->
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\LayoutGridControl.cs"
+             Link="Controls\LayoutGridControl.cs" />
+    <!-- Thin LayoutGridControl subclasses: only OnFixChildrenDockLengths, no WPF UI. -->
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\LayoutPanelControl.cs"             Link="Controls\LayoutPanelControl.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\LayoutDocumentPaneGroupControl.cs"   Link="Controls\LayoutDocumentPaneGroupControl.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\LayoutAnchorablePaneGroupControl.cs" Link="Controls\LayoutAnchorablePaneGroupControl.cs" />
+  </ItemGroup>
+
+  <!-- Phase 2: Commands — link all 8 files (RelayCommand uses ICommand alias + CommandManager stub). -->
+  <ItemGroup>
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Commands\**\*.cs"
+             Exclude="..\..\externals\AvalonDock\source\Components\AvalonDock\Commands\NamespaceDoc.cs"
+             Link="Commands\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- Phase 1: root-level helpers the model layer depends on. XmlSerializersCache
+       and MathHelper are platform-neutral. Win32Helper is P/Invoke that compiles
+       on every target (only invoked on Windows; the model's serialization path
+       never calls it). -->
+  <ItemGroup>
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\XmlSerializersCache.cs" Link="XmlSerializersCache.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\MathHelper.cs" Link="MathHelper.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Win32Helper.cs" Link="Win32Helper.cs" />
+  </ItemGroup>
+
+  <!-- Phase 8: Serialization — XmlLayoutSerializer saves/restores layout to XML. -->
+  <ItemGroup>
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\LayoutSerializationCallbackEventArgs.cs"
+             Link="Layout\Serialization\LayoutSerializationCallbackEventArgs.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\LayoutSerializer.cs"
+             Link="Layout\Serialization\LayoutSerializer.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\XmlLayoutSerializer.cs"
+             Link="Layout\Serialization\XmlLayoutSerializer.cs" />
+  </ItemGroup>
+</Project>

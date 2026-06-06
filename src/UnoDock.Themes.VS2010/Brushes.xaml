@@ -1,0 +1,89 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- VS2010 theme color palette.
+         WPF's DrawingBrush tiled patterns and LinearGradientBrushes are simplified to
+         SolidColorBrushes using the dominant/representative color value. -->
+
+    <!-- General -->
+    <SolidColorBrush x:Key="UnoDock_VS2010_Background"        Color="#2C3D5A" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_PanelBorderBrush"  Color="#293955" />
+
+    <!-- Tab bar (document well header) -->
+    <SolidColorBrush x:Key="UnoDock_VS2010_TabBarBackground"  Color="#D4DBE4" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_TabBarBorderBrush" Color="#BBC0C7" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_TabBorderBrush"    Color="#BBC0C7" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_TabText"           Color="#1E1E1E" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ContentBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ResizerBackground" Color="#3D5277" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_CloseButtonForeground" Color="#293955" />
+
+    <!-- Document well tab states — golden highlight for selected/hover (VS2010 characteristic) -->
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabSelectedActiveBackground"   Color="#FFE8A6" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabSelectedActiveText"         Color="#000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabSelectedInactiveBackground" Color="#D7DCE4" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabSelectedInactiveText"       Color="#000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabUnselectedBackground"       Color="#C8D5E8" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabUnselectedText"             Color="#000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabUnselectedHoveredBackground" Color="#FFE8A6" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabUnselectedHoveredText"       Color="#000000" />
+
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabButtonSelectedActiveGlyph"                          Color="#293955" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabButtonSelectedInactiveGlyph"                        Color="#293955" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabButtonUnselectedTabHoveredGlyph"                    Color="#293955" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabButtonSelectedActiveHoveredBackground"              Color="#FFCA28" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DocumentWellTabButtonUnselectedTabHoveredButtonHoveredBackground"  Color="#FFCA28" />
+
+    <!-- Auto-hide tab strip (anchored along edges) -->
+    <SolidColorBrush x:Key="UnoDock_VS2010_AutoHideTabDefaultBackground"  Color="#3D5277" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_AutoHideTabDefaultBorder"      Color="#293955" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_AutoHideTabDefaultText"        Color="#FFFFFF" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_AutoHideTabHoveredBackground"  Color="#4D6082" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_AutoHideTabHoveredBorder"      Color="#FFE8A6" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_AutoHideTabHoveredText"        Color="#FFE8A6" />
+
+    <!-- Tool window caption -->
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionActiveBackground"   Color="#4D6082" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionActiveText"         Color="#FFFFFF" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionInactiveBackground" Color="#3D5277" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionInactiveText"       Color="#FFFFFF" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionActiveGrip"         Color="#8090A8" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionInactiveGrip"       Color="#6070A0" />
+
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonActiveGlyph"                   Color="#FFFFFF" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonActiveHoveredBackground"       Color="#FFE8A6" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonActiveHoveredBorder"           Color="#C49A00" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonActiveHoveredGlyph"            Color="#293955" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonActivePressedBackground"       Color="#FFD700" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonActivePressedBorder"           Color="#C49A00" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonActivePressedGlyph"            Color="#293955" />
+
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonInactiveGlyph"                 Color="#FFFFFF" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonInactiveHoveredBackground"     Color="#FFE8A6" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonInactiveHoveredBorder"         Color="#C49A00" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonInactiveHoveredGlyph"          Color="#293955" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonInactivePressedBackground"     Color="#FFD700" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonInactivePressedBorder"         Color="#C49A00" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowCaptionButtonInactivePressedGlyph"          Color="#293955" />
+
+    <!-- Tool window tab strip -->
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabSelectedActiveBackground"    Color="#CED4DB" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabSelectedActiveText"          Color="#000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabSelectedInactiveBackground"  Color="#CED4DB" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabSelectedInactiveText"        Color="#000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabUnselectedBackground"        Color="#3D5277" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabUnselectedText"              Color="#FFFFFF" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabUnselectedHoveredBackground" Color="#4D6082" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_ToolWindowTabUnselectedHoveredText"       Color="#FFFFFF" />
+
+    <!-- Dock indicators -->
+    <SolidColorBrush x:Key="UnoDock_VS2010_DockingButtonBackgroundBrush"      Color="#20000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DockingButtonForegroundBrush"      Color="#FF6EB3F5" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DockingButtonForegroundArrowBrush" Color="#FF000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DockingButtonStarBorderBrush"      Color="#40808080" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_DockingButtonStarBackgroundBrush"  Color="#20000000" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_PreviewBoxBorderBrush"             Color="#FF3D5277" />
+    <SolidColorBrush x:Key="UnoDock_VS2010_PreviewBoxBackgroundBrush"         Color="#803D5277" />
+
+</ResourceDictionary>

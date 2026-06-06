@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <UnoUIDisableLongPathWarning>true</UnoUIDisableLongPathWarning>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="GitVersion.MsBuild" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

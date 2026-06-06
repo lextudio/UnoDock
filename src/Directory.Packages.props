@@ -1,0 +1,12 @@
+<Project>
+  <ItemGroup>
+    <!-- Pin patched Tmds.DBus.Protocol to avoid GHSA-xrw6-gwf8-vvr9 (CVE-2026-39959) -->
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.92.0" />
+    <PackageVersion Include="GitVersion.MsBuild" Version="5.12.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageVersion Include="NUnit" Version="3.14.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageVersion Include="LeXtudio.DevFlow.Agent.Uno" Version="0.1.11" />
+    <PackageVersion Include="LeXtudio.Windows" Version="0.7.3" />
+  </ItemGroup>
+</Project>

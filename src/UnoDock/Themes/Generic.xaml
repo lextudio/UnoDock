@@ -1,0 +1,345 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:AvalonDock.Controls"
+    xmlns:dock="using:AvalonDock">
+
+    <!-- ── DockingManager ───────────────────────────────────────────────── -->
+    <Style TargetType="dock:DockingManager">
+        <Setter Property="Background" Value="{ThemeResource SystemControlBackgroundAltHighBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="dock:DockingManager">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <!-- PART_TemplateRoot: 3×3 grid — center=content, edges=auto-hide side panels -->
+                        <Grid x:Name="PART_TemplateRoot" Background="{TemplateBinding Background}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*"    />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*"    />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Auto-hide side panels (tabs along edges) -->
+                            <ContentPresenter x:Name="PART_TopSidePanel"
+                                              Grid.Row="0" Grid.Column="1"
+                                              Content="{TemplateBinding TopSidePanel}" />
+                            <ContentPresenter x:Name="PART_LeftSidePanel"
+                                              Grid.Row="1" Grid.Column="0"
+                                              Content="{TemplateBinding LeftSidePanel}" />
+                            <ContentPresenter x:Name="PART_RightSidePanel"
+                                              Grid.Row="1" Grid.Column="2"
+                                              Content="{TemplateBinding RightSidePanel}" />
+                            <ContentPresenter x:Name="PART_BottomSidePanel"
+                                              Grid.Row="2" Grid.Column="1"
+                                              Content="{TemplateBinding BottomSidePanel}" />
+
+                            <!-- Center: the main docked layout -->
+                            <ContentPresenter x:Name="PART_LayoutRootPanel"
+                                              Grid.Row="1" Grid.Column="1"
+                                              Content="{TemplateBinding LayoutRootPanel}" />
+
+                            <!-- Compass canvas overlay injected at runtime (spans all cells) -->
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── LayoutAnchorSideControl ──────────────────────────────────────── -->
+    <Style TargetType="controls:LayoutAnchorSideControl">
+        <Setter Property="Background" Value="#2D2D30" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:LayoutAnchorSideControl">
+                    <Border Background="{TemplateBinding Background}">
+                        <StackPanel x:Name="PART_TabPanel"
+                                    MinWidth="6"
+                                    MinHeight="6"
+                                    Orientation="Vertical" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── LayoutDocumentPaneControl ────────────────────────────────────── -->
+    <Style TargetType="controls:LayoutDocumentPaneControl">
+        <Setter Property="Background" Value="{ThemeResource SystemControlBackgroundAltHighBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:LayoutDocumentPaneControl">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="28" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Tab strip: dark VS-style bar. Each tab is a Border (Tag=model)
+                             plus a close button. Column 0 holds the scrolling tab strip;
+                             column 1 holds the overflow ⌄ button (hidden when no docs). -->
+                        <Border x:Name="PART_TabStripHost"
+                                Grid.Row="0"
+                                Background="#2D2D30"
+                                BorderBrush="#3F3F46"
+                                BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Tab strip (clips to column width) -->
+                                <ItemsControl x:Name="PART_TabStrip"
+                                              Grid.Column="0"
+                                              ItemsSource="{TemplateBinding ItemsSource}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- Outer Border carries Tag for selection routing.
+                                                 Bottom accent border (2px, blue) marks active tab —
+                                                 managed imperatively from UpdateTabHighlights(). -->
+                                            <Border x:Name="TabOuter"
+                                                    BorderBrush="#3F3F46"
+                                                    BorderThickness="1,0,1,0"
+                                                    Background="Transparent"
+                                                    Tag="{Binding}"
+                                                    AutomationProperties.AutomationId="{Binding ContentId}">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="*" />
+                                                        <RowDefinition Height="2" />
+                                                    </Grid.RowDefinitions>
+                                                    <!-- Tab content row -->
+                                                    <StackPanel Grid.Row="0"
+                                                                Orientation="Horizontal"
+                                                                Padding="10,0,4,0"
+                                                                MinWidth="80"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Title}"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="#D4D4D4"
+                                                                   FontSize="12" />
+                                                        <!-- Close button: named "CloseBtn" so
+                                                             code-behind recognises close clicks. -->
+                                                        <Button x:Name="CloseBtn"
+                                                                Width="16" Height="16"
+                                                                Margin="6,0,0,0"
+                                                                Padding="0"
+                                                                CornerRadius="2"
+                                                                Background="Transparent"
+                                                                BorderThickness="0"
+                                                                VerticalAlignment="Center"
+                                                                Tag="{Binding}"
+                                                                ToolTipService.ToolTip="Close">
+                                                            <TextBlock Text="✕"
+                                                                       FontSize="9"
+                                                                       Foreground="#808080"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                    <!-- Bottom accent line (blue for active) -->
+                                                    <Border x:Name="AccentLine"
+                                                            Grid.Row="1"
+                                                            Background="Transparent" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Overflow button — shows all docs in a MenuFlyout.
+                                     Background/glyph colours are set imperatively from code-behind
+                                     using the DocumentWellOverflowButton* resource keys. -->
+                                <Button x:Name="PART_OverflowButton"
+                                        Grid.Column="1"
+                                        Width="22"
+                                        Padding="0"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        VerticalAlignment="Stretch"
+                                        ToolTipService.ToolTip="Document list"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="PART_OverflowGlyph"
+                                               Text="⌄"
+                                               FontSize="11"
+                                               Foreground="#CED4DD"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Content area -->
+                        <Border Grid.Row="1"
+                                Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
+                            <ContentPresenter Content="{TemplateBinding SelectedContent}" />
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── LayoutAnchorablePaneControl ──────────────────────────────────── -->
+    <Style TargetType="controls:LayoutAnchorablePaneControl">
+        <Setter Property="Background" Value="{ThemeResource SystemControlBackgroundAltHighBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:LayoutAnchorablePaneControl">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="28" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border x:Name="PART_TabStripHost"
+                                Grid.Row="0"
+                                Background="#2D2D30"
+                                BorderBrush="#3F3F46"
+                                BorderThickness="0,0,0,1">
+                            <ItemsControl x:Name="PART_TabStrip"
+                                          ItemsSource="{TemplateBinding ItemsSource}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="TabOuter"
+                                                BorderBrush="#3F3F46"
+                                                BorderThickness="1,0,1,0"
+                                                Background="Transparent"
+                                                Tag="{Binding}"
+                                                AutomationProperties.AutomationId="{Binding ContentId}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="2" />
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Grid.Row="0"
+                                                           Text="{Binding Title}"
+                                                           Padding="10,0"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#D4D4D4"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold" />
+                                                <Border x:Name="AccentLine"
+                                                        Grid.Row="1"
+                                                        Background="Transparent" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <Border Grid.Row="1"
+                                Background="{ThemeResource SystemControlBackgroundAltHighBrush}"
+                                Padding="4">
+                            <ContentPresenter Content="{TemplateBinding SelectedContent}" />
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── LayoutGridResizerControl ─────────────────────────────────────── -->
+    <Style TargetType="controls:LayoutGridResizerControl">
+        <Setter Property="Background" Value="#3F3F46" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:LayoutGridResizerControl">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Thumb x:Name="PART_Thumb"
+                               Background="Transparent"
+                               Opacity="0" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── OverlayWindow ────────────────────────────────────────────────────
+         Mirrors WPF generic.xaml PART_ naming so VS2013 (and other) themes can
+         supply button DataTemplates via UnoDock_VS2013_Dock*Template resource keys.
+
+         PART_DropTargetsContainer      — outer Grid, stretches over the DockingManager
+         PART_PreviewBox                — drop-zone highlight rect, positioned via Margin
+         PART_DockingManagerDropTargets — Grid; 4 edge-aligned buttons built in OnApplyTemplate
+         PART_AnchorablePaneDropTargets — Canvas; compass Grid positioned over active pane
+         PART_DocumentPaneDropTargets   — Canvas; compass Grid positioned over active pane
+    -->
+    <Style TargetType="controls:OverlayWindow">
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:OverlayWindow">
+                    <Grid x:Name="PART_DropTargetsContainer" Opacity="0.9"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          IsHitTestVisible="False">
+
+                        <!-- Preview highlight: path geometry set by code. A Path is required
+                             for AvalonDock's tab-header preview shape, which has a tab notch. -->
+                        <Path x:Name="PART_PreviewBox"
+                              HorizontalAlignment="Left" VerticalAlignment="Top"
+                              IsHitTestVisible="False"
+                              Visibility="Collapsed"
+                              StrokeThickness="2">
+                            <Path.Fill>
+                                <SolidColorBrush Color="#007ACC" Opacity="0.33" />
+                            </Path.Fill>
+                            <Path.Stroke>
+                                <SolidColorBrush Color="#007ACC" />
+                            </Path.Stroke>
+                        </Path>
+
+                        <!-- DockingManager edge buttons — children added in OnApplyTemplate -->
+                        <Grid x:Name="PART_DockingManagerDropTargets"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                              Visibility="Collapsed" />
+
+                        <!-- Anchorable-pane compass — compass Grid positioned in OnApplyTemplate -->
+                        <Canvas x:Name="PART_AnchorablePaneDropTargets"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                Visibility="Collapsed" />
+
+                        <!-- Document-pane compass (5-zone, document drag) — positioned in OnApplyTemplate -->
+                        <Canvas x:Name="PART_DocumentPaneDropTargets"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                Visibility="Collapsed" />
+
+                        <!-- Document-pane full compass (9-zone, anchorable drag over doc pane) -->
+                        <Canvas x:Name="PART_DocumentPaneFullDropTargets"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                Visibility="Collapsed" />
+
+                        <!-- Session 22 diagnostic: red outlines for tab-header drop hit zones. -->
+                        <Canvas x:Name="PART_TabDropDebugRects"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
