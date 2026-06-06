@@ -12,15 +12,23 @@
     <LangVersion>latest</LangVersion>
     <NoWarn>$(NoWarn);UNO0006</NoWarn>
     <GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
+    <UseNuGetPackages>false</UseNuGetPackages>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <UseWinUI>true</UseWinUI>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
     <ProjectReference Include="..\UnoDock\UnoDock.csproj" />
     <ProjectReference Include=".\..\UnoDock.Themes.VS2013\UnoDock.Themes.VS2013.csproj" />
     <ProjectReference Include=".\..\UnoDock.Themes.VS2010\UnoDock.Themes.VS2010.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
+    <PackageReference Include="LeXtudio.UnoDock" />
+    <PackageReference Include="LeXtudio.UnoDock.Themes.VS2013" />
+    <PackageReference Include="LeXtudio.UnoDock.Themes.VS2010" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="LeXtudio.DevFlow.Agent.Uno" />
   </ItemGroup>
 </Project>
