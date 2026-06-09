@@ -4,19 +4,21 @@
 // drag events by hosting an inner Thumb. The DragStarted/Delta/Completed events
 // are forwarded so LayoutGridControl wires up identically.
 
+using System;
 using System.ComponentModel;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Windows.UI.Core;
 
 namespace AvalonDock.Controls
 {
 	public class LayoutGridResizerControl : Control
 	{
 		private Thumb _innerThumb;
+		private InputCursor? _resizeCursor;
+		private InputCursor? _defaultCursor;
 
 		// Set by LayoutGridControl.CreateSplitters() after instantiation.
 		internal bool IsHorizontalResizer { get; set; }
@@ -29,22 +31,7 @@ namespace AvalonDock.Controls
 		public LayoutGridResizerControl()
 		{
 			DefaultStyleKey = typeof(LayoutGridResizerControl);
-			PointerEntered += OnPointerEntered;
-			PointerExited  += OnPointerExited;
-		}
-
-		private void OnPointerEntered(object sender, PointerRoutedEventArgs e)
-		{
-			var cursor = IsHorizontalResizer
-				? new CoreCursor(CoreCursorType.SizeWestEast, 1)
-				: new CoreCursor(CoreCursorType.SizeNorthSouth, 1);
-			Window.Current?.CoreWindow?.PointerCursor = cursor;
-		}
-
-		private void OnPointerExited(object sender, PointerRoutedEventArgs e)
-		{
-			Window.Current?.CoreWindow?.PointerCursor =
-				new CoreCursor(CoreCursorType.Arrow, 1);
+			ResizeModeChanged += OnResizeModeChanged;
 		}
 
 		// Expose Thumb-like drag events by forwarding from the inner Thumb.
@@ -62,6 +49,8 @@ namespace AvalonDock.Controls
 				_innerThumb.DragDelta += (s, e) => DragDelta?.Invoke(this, e);
 				_innerThumb.DragCompleted += (s, e) => DragCompleted?.Invoke(this, e);
 			}
+
+			ApplyCursor();
 		}
 
 		public static readonly DependencyProperty BackgroundWhileDraggingProperty =
@@ -84,6 +73,29 @@ namespace AvalonDock.Controls
 		{
 			get => (double)GetValue(OpacityWhileDraggingProperty);
 			set => SetValue(OpacityWhileDraggingProperty, value);
+		}
+
+		internal event EventHandler? ResizeModeChanged;
+
+		internal void RefreshResizeCursor()
+		{
+			ResizeModeChanged?.Invoke(this, EventArgs.Empty);
+		}
+
+		private void OnResizeModeChanged(object? sender, EventArgs e)
+		{
+			_resizeCursor = InputSystemCursor.Create(
+				IsHorizontalResizer
+					? InputSystemCursorShape.SizeWestEast
+					: InputSystemCursorShape.SizeNorthSouth);
+			_defaultCursor ??= InputSystemCursor.Create(InputSystemCursorShape.Arrow);
+
+			ApplyCursor();
+		}
+
+		private void ApplyCursor()
+		{
+			ProtectedCursor = _resizeCursor ?? _defaultCursor;
 		}
 	}
 }
