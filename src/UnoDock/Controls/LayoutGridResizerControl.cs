@@ -4,7 +4,6 @@
 // drag events by hosting an inner Thumb. The DragStarted/Delta/Completed events
 // are forwarded so LayoutGridControl wires up identically.
 
-using System;
 using System.ComponentModel;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -18,7 +17,6 @@ namespace AvalonDock.Controls
 	{
 		private Thumb _innerThumb;
 		private InputCursor? _resizeCursor;
-		private InputCursor? _defaultCursor;
 
 		// Set by LayoutGridControl.CreateSplitters() after instantiation.
 		internal bool IsHorizontalResizer { get; set; }
@@ -31,7 +29,6 @@ namespace AvalonDock.Controls
 		public LayoutGridResizerControl()
 		{
 			DefaultStyleKey = typeof(LayoutGridResizerControl);
-			ResizeModeChanged += OnResizeModeChanged;
 		}
 
 		// Expose Thumb-like drag events by forwarding from the inner Thumb.
@@ -75,27 +72,21 @@ namespace AvalonDock.Controls
 			set => SetValue(OpacityWhileDraggingProperty, value);
 		}
 
-		internal event EventHandler? ResizeModeChanged;
+		// Called by LayoutGridControl when orientation/resize-mode changes after the
+		// template is applied, so the cursor stays in sync with IsHorizontalResizer.
+		internal void RefreshResizeCursor() => ApplyCursor();
 
-		internal void RefreshResizeCursor()
+		private void ApplyCursor()
 		{
-			ResizeModeChanged?.Invoke(this, EventArgs.Empty);
-		}
-
-		private void OnResizeModeChanged(object? sender, EventArgs e)
-		{
+			// IsHorizontalResizer is set by CreateSplitters() before the control enters the
+			// tree, so it is reliable here. Build the cursor eagerly — the inner Thumb (the
+			// actual hit-test target) inherits CalculatedFinalCursor from this control.
 			_resizeCursor = InputSystemCursor.Create(
 				IsHorizontalResizer
 					? InputSystemCursorShape.SizeWestEast
 					: InputSystemCursorShape.SizeNorthSouth);
-			_defaultCursor ??= InputSystemCursor.Create(InputSystemCursorShape.Arrow);
 
-			ApplyCursor();
-		}
-
-		private void ApplyCursor()
-		{
-			ProtectedCursor = _resizeCursor ?? _defaultCursor;
+			ProtectedCursor = _resizeCursor;
 		}
 	}
 }
