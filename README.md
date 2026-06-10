@@ -4,25 +4,18 @@ UnoDock is a desktop-first port of AvalonDock to [Uno Platform](https://platform
 
 Current scope:
 
-- Target Uno Skia Desktop on Windows and macOS in initial builds.
+- Target Uno Skia Desktop on Windows and macOS.
+- Target WinUI 3 on Windows.
 - Do not target Linux yet
-- Do not target WinUI 3 yet
 - Do not target mobile during the bootstrap phase (v0.x.x).
 
 ![UnoDock on macOS](https://raw.githubusercontent.com/lextudio/UnoDock/master/images/macos.png)
 
-Current scope:
-
-- Target Uno Skia Desktop.
-- Do not target mobile during the bootstrap phase (v0.x.x).
-
 ## Supported Platforms
 
-- Windows 11 (Windows 10 may work but is not a primary target)
+- Windows 11 (Windows 10 may work but is not a primary target). WinUI 3 is supported by not a primary target.
 - macOS, 3 most recent versions from 2023-2025
 
-> WinUI 3 support is planned later.
->
 > Linux support is planned later.
 >
 > If you are looking for support of a specific platform, business sponsorship is the way to accelerate that work. Please reach out to us at [homepage](https://lextudio.com).

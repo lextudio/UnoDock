@@ -363,11 +363,15 @@
                                            Text="{Binding SelectedItem.Title, RelativeSource={RelativeSource TemplatedParent}, FallbackValue=Tool Window}" />
 
                                 <!-- Grip dots: diagonal 1×1 px rects tiled at 4px pitch, matching
-                                     WPF VS2013 DragHandleTexture (DrawingBrush Viewbox=0,0,4,4). -->
-                                <Path Grid.Column="1"
+                                     WPF VS2013 DragHandleTexture (DrawingBrush Viewbox=0,0,4,4).
+                                     The Data below is an initial placeholder; LayoutAnchorablePaneControl
+                                     regenerates it to span the actual header width (WinUI has no
+                                     tiling brush, so the dots are retiled in code-behind). -->
+                                <Path x:Name="PART_HeaderGrip"
+                                      Grid.Column="1"
                                       Height="5"
                                       Margin="4,0,2,0"
-                                      HorizontalAlignment="Left"
+                                      HorizontalAlignment="Stretch"
                                       VerticalAlignment="Center"
                                       Fill="{StaticResource UnoDock_VS2013_ToolWindowCaptionInactiveGrip}"
                                       Data="M0,0 h1 v1 h-1z M4,0 h1 v1 h-1z M8,0 h1 v1 h-1z M12,0 h1 v1 h-1z M16,0 h1 v1 h-1z M20,0 h1 v1 h-1z M24,0 h1 v1 h-1z M28,0 h1 v1 h-1z M32,0 h1 v1 h-1z M36,0 h1 v1 h-1z M40,0 h1 v1 h-1z M44,0 h1 v1 h-1z M48,0 h1 v1 h-1z M52,0 h1 v1 h-1z M56,0 h1 v1 h-1z M60,0 h1 v1 h-1z M64,0 h1 v1 h-1z M68,0 h1 v1 h-1z M72,0 h1 v1 h-1z M76,0 h1 v1 h-1z M80,0 h1 v1 h-1z M84,0 h1 v1 h-1z M88,0 h1 v1 h-1z M92,0 h1 v1 h-1z M96,0 h1 v1 h-1z M100,0 h1 v1 h-1z M104,0 h1 v1 h-1z M108,0 h1 v1 h-1z M112,0 h1 v1 h-1z M116,0 h1 v1 h-1z M120,0 h1 v1 h-1z M124,0 h1 v1 h-1z M128,0 h1 v1 h-1z M132,0 h1 v1 h-1z M136,0 h1 v1 h-1z M140,0 h1 v1 h-1z M144,0 h1 v1 h-1z M148,0 h1 v1 h-1z M152,0 h1 v1 h-1z M156,0 h1 v1 h-1z M160,0 h1 v1 h-1z M164,0 h1 v1 h-1z M168,0 h1 v1 h-1z M172,0 h1 v1 h-1z M176,0 h1 v1 h-1z M180,0 h1 v1 h-1z M184,0 h1 v1 h-1z M188,0 h1 v1 h-1z M192,0 h1 v1 h-1z M196,0 h1 v1 h-1z M2,2 h1 v1 h-1z M6,2 h1 v1 h-1z M10,2 h1 v1 h-1z M14,2 h1 v1 h-1z M18,2 h1 v1 h-1z M22,2 h1 v1 h-1z M26,2 h1 v1 h-1z M30,2 h1 v1 h-1z M34,2 h1 v1 h-1z M38,2 h1 v1 h-1z M42,2 h1 v1 h-1z M46,2 h1 v1 h-1z M50,2 h1 v1 h-1z M54,2 h1 v1 h-1z M58,2 h1 v1 h-1z M62,2 h1 v1 h-1z M66,2 h1 v1 h-1z M70,2 h1 v1 h-1z M74,2 h1 v1 h-1z M78,2 h1 v1 h-1z M82,2 h1 v1 h-1z M86,2 h1 v1 h-1z M90,2 h1 v1 h-1z M94,2 h1 v1 h-1z M98,2 h1 v1 h-1z M102,2 h1 v1 h-1z M106,2 h1 v1 h-1z M110,2 h1 v1 h-1z M114,2 h1 v1 h-1z M118,2 h1 v1 h-1z M122,2 h1 v1 h-1z M126,2 h1 v1 h-1z M130,2 h1 v1 h-1z M134,2 h1 v1 h-1z M138,2 h1 v1 h-1z M142,2 h1 v1 h-1z M146,2 h1 v1 h-1z M150,2 h1 v1 h-1z M154,2 h1 v1 h-1z M158,2 h1 v1 h-1z M162,2 h1 v1 h-1z M166,2 h1 v1 h-1z M170,2 h1 v1 h-1z M174,2 h1 v1 h-1z M178,2 h1 v1 h-1z M182,2 h1 v1 h-1z M186,2 h1 v1 h-1z M190,2 h1 v1 h-1z M194,2 h1 v1 h-1z M198,2 h1 v1 h-1z" />

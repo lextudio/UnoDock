@@ -500,7 +500,7 @@ namespace AvalonDock.Controls
 			// the user clicks AWAY to the main window; honoring it would steal active back and
 			// leave the just-clicked main tab selected-but-unfocused. The initial floated-content
 			// activation is handled by the floating pane's SyncSelection, not here.
-			if (e.WindowActivationState != Windows.UI.Core.CoreWindowActivationState.PointerActivated)
+			if ((int)e.WindowActivationState != (int)WindowActivationState.PointerActivated)
 				return;
 			if (content != null && !content.IsActive)
 				content.IsActive = true;

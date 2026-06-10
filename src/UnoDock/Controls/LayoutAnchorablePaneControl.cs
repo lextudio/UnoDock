@@ -27,6 +27,8 @@ namespace AvalonDock.Controls
 		private Button _headerMenuButton;
 		private Button _headerAutoHideButton;
 		private Button _headerCloseButton;
+		private Path _headerGrip;
+		private int _headerGripTileCount = -1;
 
 		private enum HeaderButtonState
 		{
@@ -90,6 +92,9 @@ namespace AvalonDock.Controls
 			base.OnApplyTemplate();
 			_headerBorder = GetTemplateChild("PART_HeaderBorder") as Border;
 			_headerTitle = GetTemplateChild("PART_HeaderTitle") as TextBlock;
+			_headerGrip = GetTemplateChild("PART_HeaderGrip") as Path;
+			if (_headerGrip != null)
+				_headerGrip.SizeChanged += OnHeaderGripSizeChanged;
 			_headerMenuButton = GetTemplateChild("PART_HeaderMenu") as Button;
 			_headerAutoHideButton = GetTemplateChild("PART_HeaderAutoHide") as Button;
 			_headerCloseButton = GetTemplateChild("PART_HeaderClose") as Button;
@@ -124,6 +129,24 @@ namespace AvalonDock.Controls
 				UpdateFloatingSinglePaneChrome();
 			};
 			UpdateFloatingSinglePaneChrome();
+		}
+
+		// WinUI/Uno have no tiling brush, so the header drag-grip dots (WPF VS
+		// DragHandleTexture, a 4×4 DrawingBrush tile) are regenerated here to
+		// span whatever width the header grip column currently has.
+		private void OnHeaderGripSizeChanged(object sender, SizeChangedEventArgs e)
+		{
+			var width = e.NewSize.Width;
+			var tiles = Math.Max(0, (int)(width / 4.0));
+			if (tiles == _headerGripTileCount) return;
+			_headerGripTileCount = tiles;
+
+			var dots = new GeometryGroup();
+			for (var x = 0.0; x + 1 <= width; x += 4)
+				dots.Children.Add(new RectangleGeometry { Rect = new Windows.Foundation.Rect(x, 0, 1, 1) });
+			for (var x = 2.0; x + 1 <= width; x += 4)
+				dots.Children.Add(new RectangleGeometry { Rect = new Windows.Foundation.Rect(x, 2, 1, 1) });
+			_headerGrip.Data = dots;
 		}
 
 		private LayoutAnchorable GetSelectedAnchorable() => _model.SelectedContent as LayoutAnchorable;

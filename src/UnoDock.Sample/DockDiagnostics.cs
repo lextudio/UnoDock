@@ -500,8 +500,8 @@ public static class DockDiagnostics
 		var size = visual is FrameworkElement sizeElement
 			? $" size={sizeElement.ActualWidth:F1}x{sizeElement.ActualHeight:F1}"
 			: "";
-		var grid = visual is UIElement uiElement
-			? $" grid=({Microsoft.UI.Xaml.Controls.Grid.GetRow(uiElement)},{Microsoft.UI.Xaml.Controls.Grid.GetColumn(uiElement)},rs={Microsoft.UI.Xaml.Controls.Grid.GetRowSpan(uiElement)},cs={Microsoft.UI.Xaml.Controls.Grid.GetColumnSpan(uiElement)})"
+		var grid = visual is FrameworkElement gridElement
+			? $" grid=({Microsoft.UI.Xaml.Controls.Grid.GetRow(gridElement)},{Microsoft.UI.Xaml.Controls.Grid.GetColumn(gridElement)},rs={Microsoft.UI.Xaml.Controls.Grid.GetRowSpan(gridElement)},cs={Microsoft.UI.Xaml.Controls.Grid.GetColumnSpan(gridElement)})"
 			: "";
 		var border = visual is Microsoft.UI.Xaml.Controls.Border borderElement
 			? $" bg={BrushText(borderElement.Background)} border={BrushText(borderElement.BorderBrush)} thickness={borderElement.BorderThickness}"

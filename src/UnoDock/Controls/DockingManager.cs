@@ -38,7 +38,31 @@ namespace AvalonDock
 			};
 			Loaded += OnLoaded;
 			Unloaded += OnUnloaded;
+#if WINDOWS_APP_SDK
+			SizeChanged += OnSizeChanged;
+#endif
 		}
+
+#if WINDOWS_APP_SDK
+		// Parity with WPF DockingManager.OnSizeChanged: push the manager's
+		// window-clamped size down so fixed (pixel-width) panes shrink/grow with
+		// the window. Required on WinUI because a Grid whose pixel columns exceed
+		// the available slot keeps the overflowed total as its ActualWidth, so
+		// LayoutGridControl's self-measured AdjustFixedChildrenPanelSizes never
+		// sees the true available space. Uno's Grid clamps the arranged size to
+		// the slot, so the per-grid adjustment is sufficient there.
+		private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+		{
+			if (LayoutRootPanel == null || RightSidePanel == null || LeftSidePanel == null
+				|| TopSidePanel == null || BottomSidePanel == null)
+				return;
+
+			var width = Math.Max(ActualWidth - GridSplitterWidth - RightSidePanel.ActualWidth - LeftSidePanel.ActualWidth, 0);
+			var height = Math.Max(ActualHeight - GridSplitterHeight - TopSidePanel.ActualHeight - BottomSidePanel.ActualHeight, 0);
+
+			LayoutRootPanel.AdjustFixedChildrenPanelSizes(new Size(width, height));
+		}
+#endif
 
 		// ── Layout ──────────────────────────────────────────────────────────────
 
@@ -475,14 +499,14 @@ namespace AvalonDock
 				content.FloatingLeft = 0;
 				content.FloatingTop = 0;
 			}
-			AvalonDock.Hosting.MacOSWindowTabbing.DragLog(
+			DragLogW(
 				$"StartDraggingFloatingWindow: content={content.Title} " +
 				$"FloatingLeft={content.FloatingLeft:F0} FloatingTop={content.FloatingTop:F0} " +
 				$"nativeInitialPlacement={useNativeInitialPlacement}");
 			var fwc = CreateFloatingWindow(content, false);
 			if (fwc == null) return;
 			fwc.ShowHiddenUntilPositioned = useNativeInitialPlacement;
-			AvalonDock.Hosting.MacOSWindowTabbing.DragLog(
+			DragLogW(
 				$"StartDraggingFloatingWindow created: size=({fwc.Width:F0}x{fwc.Height:F0}) " +
 				$"leftTop=({fwc.Left:F0},{fwc.Top:F0}) startDrag={startDrag}");
 
@@ -1395,7 +1419,7 @@ namespace AvalonDock
 			return $"managerSize={w:F0}x{h:F0} templateRoot={tmplOk} activeTarget={activeTargetType} trackerRunning={_dragTracker != null} watchdogRunning={_watchdog != null} originComputed=({ox:F0},{oy:F0})";
 #else
 			var (ox, oy) = ComputeScreenOriginW();
-			return $"managerSize={w:F0}x{h:F0} templateRoot={tmplOk} activeTarget={activeTargetType} trackerRunning={_dragTracker != null} originComputed=({ox:F0},{oy:F0})";
+			return $"managerSize={w:F0}x{h:F0} templateRoot={tmplOk} activeTarget={activeTargetType} trackerRunning={_windowsDragTracker != null} originComputed=({ox:F0},{oy:F0})";
 #endif
 		}
 
@@ -1414,7 +1438,7 @@ namespace AvalonDock
 
 			StartDragTracking(fwc, realDrag: true);
 #else
-			StartDragTracking(fwc, realDrag: true);
+			StartWindowsDragTracking(fwc, realDrag: true);
 #endif
 		}
 

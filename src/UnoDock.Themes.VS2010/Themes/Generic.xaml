@@ -209,11 +209,13 @@
                                            FontWeight="SemiBold"
                                            Text="{Binding SelectedItem.Title, RelativeSource={RelativeSource TemplatedParent}, FallbackValue=Tool Window}" />
 
-                                <!-- Grip dots -->
-                                <Path Grid.Column="1"
+                                <!-- Grip dots. Initial placeholder Data; LayoutAnchorablePaneControl
+                                     regenerates it to span the actual header width. -->
+                                <Path x:Name="PART_HeaderGrip"
+                                      Grid.Column="1"
                                       Height="5"
                                       Margin="4,0,2,0"
-                                      HorizontalAlignment="Left"
+                                      HorizontalAlignment="Stretch"
                                       VerticalAlignment="Center"
                                       Fill="{StaticResource UnoDock_VS2010_ToolWindowCaptionInactiveGrip}"
                                       Data="M0,0 h1 v1 h-1z M4,0 h1 v1 h-1z M8,0 h1 v1 h-1z M12,0 h1 v1 h-1z M16,0 h1 v1 h-1z M20,0 h1 v1 h-1z M24,0 h1 v1 h-1z M28,0 h1 v1 h-1z M32,0 h1 v1 h-1z M36,0 h1 v1 h-1z M2,2 h1 v1 h-1z M6,2 h1 v1 h-1z M10,2 h1 v1 h-1z M14,2 h1 v1 h-1z M18,2 h1 v1 h-1z M22,2 h1 v1 h-1z M26,2 h1 v1 h-1z M30,2 h1 v1 h-1z M34,2 h1 v1 h-1z M38,2 h1 v1 h-1z" />

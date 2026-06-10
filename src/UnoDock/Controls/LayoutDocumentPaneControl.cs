@@ -257,12 +257,12 @@ namespace AvalonDock.Controls
 						: (parentSize?.ActualHeight ?? 290) + 10;
 					tabToFloat.FloatingWidth = fwW;
 					tabToFloat.FloatingHeight = fwH;
-					AvalonDock.Hosting.MacOSWindowTabbing.DragLog(
+					DockingManager.DragLogW(
 						$"DragToFloat prepare: ptInWindow=({ptInWindow.X:F0},{ptInWindow.Y:F0}) " +
 						$"fwSize=({fwW:F0}x{fwH:F0}) nativeInitialPlacement={OperatingSystem.IsMacOS()}");
-					AvalonDock.Hosting.MacOSWindowTabbing.DragLog(
+					DockingManager.DragLogW(
 						$"DragToFloat: ptInWindow=({ptInWindow.X:F0},{ptInWindow.Y:F0}) " +
-						$"→ screen=({screenLeft:F0},{screenTop:F0})");
+						$"-> screen=({screenLeft:F0},{screenTop:F0})");
 				}
 				catch { /* best-effort */ }
 
