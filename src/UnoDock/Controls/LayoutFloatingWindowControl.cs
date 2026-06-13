@@ -43,6 +43,8 @@ namespace AvalonDock.Controls
 		private nint _nsWindow;
 		private System.IntPtr _willMoveObserver; // NSNotificationCenter observer token
 		private IntPtr _windowsHwnd;
+		private long _linuxEnforceDeadline;
+		private int _linuxRestoreAttempts;
 
 		/// <summary>Fired when the user starts dragging this floating window's title bar.</summary>
 		public Action OnTitleBarDragStarted;
@@ -81,9 +83,24 @@ namespace AvalonDock.Controls
 
 			_window = new Window();
 			_window.Title = GetWindowTitle();
-			if (OperatingSystem.IsWindows())
+			if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())
 			{
+				// Custom XAML title bar (instead of the native frame) so title-bar presses
+				// reach OnTitleBarPointerPressed and can start the drag tracker. On Linux a
+				// native WM title-bar move is driven entirely by the window manager — the
+				// app receives no pointer events, so docking overlays could never engage.
 				_window.Content = CreateWindowsWindowContent();
+				if (OperatingSystem.IsLinux())
+				{
+					// Root-level, geometry-based title-bar grab detection. Routed
+					// PointerPressed on the title-bar Border has proven unreliable on the
+					// Uno X11 backend for secondary windows, so detect any press in the
+					// 32px title band (excluding the caption buttons) at the window root.
+					_window.Content.AddHandler(
+						UIElement.PointerPressedEvent,
+						new PointerEventHandler(OnLinuxRootPointerPressed),
+						handledEventsToo: true);
+				}
 			}
 			else
 			{
@@ -105,11 +122,47 @@ namespace AvalonDock.Controls
 				var aw = _window.AppWindow;
 				if (aw != null)
 				{
+					if (!OperatingSystem.IsWindows()
+						&& aw.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter
+						&& presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized)
+					{
+						// Linux/X11 can surface newly created child windows as maximized.
+						// Restore before applying explicit size/position so floated windows
+						// open as normal tool windows instead of fullscreen children.
+						presenter.Restore();
+					}
+					if (OperatingSystem.IsLinux()
+						&& aw.Presenter is Microsoft.UI.Windowing.OverlappedPresenter linuxPresenter)
+					{
+						// Drop the native title bar (the XAML one replaces it) but keep the
+						// resize border. Must happen before Resize so the frame change does
+						// not alter the final client size. Isolated try: a failure here must
+						// not skip the Resize/Move below.
+						try
+						{
+							linuxPresenter.SetBorderAndTitleBar(true, false);
+							DockingManager.DragLogW("FloatWin: SetBorderAndTitleBar(true,false) applied");
+						}
+						catch (Exception ex)
+						{
+							DockingManager.DragLogW($"FloatWin: SetBorderAndTitleBar FAILED: {ex.Message}");
+						}
+					}
 					aw.Resize(new Windows.Graphics.SizeInt32 { Width = (int)Width, Height = (int)Height });
 					if (OperatingSystem.IsWindows() || Left != 0 || Top != 0)
 						aw.Move(new Windows.Graphics.PointInt32 { X = (int)Left, Y = (int)Top });
 					if (OperatingSystem.IsWindows())
 						HideNativeWindowChrome();
+
+					if (OperatingSystem.IsLinux())
+					{
+						// The X11/XWayland window manager maximizes the window AFTER it is
+						// mapped, asynchronously — so the synchronous Restore() above runs too
+						// early and sees a Normal state. Watch AppWindow.Changed briefly after
+						// creation and undo any WM-imposed maximize, then re-apply our size.
+						_linuxEnforceDeadline = Environment.TickCount64 + 2000;
+						aw.Changed += OnLinuxAppWindowChanged;
+					}
 				}
 			}
 			catch { /* best-effort */ }
@@ -219,6 +272,21 @@ namespace AvalonDock.Controls
 		/// available yet (caller should fall back to the timer tracker).
 		/// See docs/drag-to-float.md Part 4.
 		/// </summary>
+		/// <summary>The floating window's content root — pointer-event surface for the
+		/// Linux drag tracker. Null before Show() / after close.</summary>
+		internal UIElement GetContentRoot() => _window?.Content;
+
+		/// <summary>Rasterization scale of the floating window (1.0 when unavailable).</summary>
+		internal double GetRasterizationScale()
+		{
+			try
+			{
+				var s = _window?.Content?.XamlRoot?.RasterizationScale ?? 1.0;
+				return s > 0 ? s : 1.0;
+			}
+			catch { return 1.0; }
+		}
+
 		internal INativeWindowDrag CreateNativeDrag()
 		{
 			// macOS: NOT supported. AppKit's performWindowDragWithEvent: only starts a
@@ -455,8 +523,35 @@ namespace AvalonDock.Controls
 				SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 		}
 
+		private void OnLinuxRootPointerPressed(object sender, PointerRoutedEventArgs e)
+		{
+			try
+			{
+				var root = _window?.Content as FrameworkElement;
+				if (root == null)
+					return;
+
+				var cp = e.GetCurrentPoint(root);
+				// Title band: the 32px custom title bar, minus the two caption buttons
+				// (2 × 34px) on the right so close/maximize clicks don't start a drag.
+				var inTitleBand = cp.Position.Y <= 32 && cp.Position.X < root.ActualWidth - 70;
+				DockingManager.DragLogW(
+					$"FloatWin root press: pos=({cp.Position.X:F0},{cp.Position.Y:F0}) " +
+					$"titleBand={inTitleBand} left={cp.Properties.IsLeftButtonPressed}");
+				if (!inTitleBand || !cp.Properties.IsLeftButtonPressed)
+					return;
+
+				_window?.DispatcherQueue?.TryEnqueue(
+					Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal,
+					() => OnTitleBarDragStarted?.Invoke());
+			}
+			catch { }
+		}
+
 		private void OnTitleBarPointerPressed(object sender, PointerRoutedEventArgs e)
 		{
+			// Windows-only: Linux uses the root-level geometry detection above
+			// (OnLinuxRootPointerPressed) — a press here would double-start the drag.
 			if (!OperatingSystem.IsWindows())
 				return;
 
@@ -506,10 +601,42 @@ namespace AvalonDock.Controls
 				content.IsActive = true;
 		}
 
+		private void OnLinuxAppWindowChanged(
+			Microsoft.UI.Windowing.AppWindow aw,
+			Microsoft.UI.Windowing.AppWindowChangedEventArgs e)
+		{
+			if (Environment.TickCount64 > _linuxEnforceDeadline || _linuxRestoreAttempts >= 3)
+			{
+				aw.Changed -= OnLinuxAppWindowChanged;
+				return;
+			}
+
+			if (aw.Presenter is not Microsoft.UI.Windowing.OverlappedPresenter presenter
+				|| presenter.State != Microsoft.UI.Windowing.OverlappedPresenterState.Maximized)
+				return;
+
+			_linuxRestoreAttempts++;
+			DockingManager.DragLogW($"FloatWin: WM maximized window post-map; restoring (attempt {_linuxRestoreAttempts})");
+			try
+			{
+				presenter.Restore();
+				aw.Resize(new Windows.Graphics.SizeInt32 { Width = (int)Width, Height = (int)Height });
+				if (Left != 0 || Top != 0)
+					aw.Move(new Windows.Graphics.PointInt32 { X = (int)Left, Y = (int)Top });
+			}
+			catch { }
+		}
+
 		private void OnWindowClosed(object sender, WindowEventArgs e)
 		{
 			if (_window != null)
+			{
 				_window.Activated -= OnWindowActivated;
+				if (OperatingSystem.IsLinux())
+				{
+					try { _window.AppWindow.Changed -= OnLinuxAppWindowChanged; } catch { }
+				}
+			}
 			_window = null;
 			_nsWindow = 0;
 			_windowsHwnd = IntPtr.Zero;

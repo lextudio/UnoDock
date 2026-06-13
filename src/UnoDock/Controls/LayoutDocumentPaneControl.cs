@@ -34,6 +34,8 @@ namespace AvalonDock.Controls
 		private static readonly SolidColorBrush FallbackCloseBtnInactiveHoverBg =
 			new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x52, 0xB0, 0xEF));
 		private Border _hoveredTabBorder;
+		private readonly Microsoft.UI.Xaml.Input.PointerEventHandler _linuxTabDragMoveHandler;
+		private readonly Microsoft.UI.Xaml.Input.PointerEventHandler _linuxTabDragReleaseHandler;
 
 		public static readonly DependencyProperty SelectedContentProperty =
 			DependencyProperty.Register(nameof(SelectedContent), typeof(object),
@@ -51,6 +53,8 @@ namespace AvalonDock.Controls
 			_model = model ?? throw new ArgumentNullException(nameof(model));
 			DefaultStyleKey = typeof(LayoutDocumentPaneControl);
 			_panePressedHandler = OnPanePointerPressed;
+			_linuxTabDragMoveHandler = OnLinuxTabDragPointerMoved;
+			_linuxTabDragReleaseHandler = OnLinuxTabDragPointerReleased;
 			ItemsSource = _model.Children;
 			SyncSelection();
 			_model.PropertyChanged += OnModelPropertyChanged;
@@ -111,8 +115,18 @@ namespace AvalonDock.Controls
 			if (_tabStrip != null)
 			{
 				_tabStrip.PointerPressed  += OnTabStripPointerPressed;
-				_tabStrip.PointerMoved    += OnTabStripPointerMoved;
-				_tabStrip.PointerReleased += OnTabStripPointerReleased;
+				if (OperatingSystem.IsLinux())
+				{
+					// Linux fallback: some Uno/Linux backends do not reliably deliver
+					// PointerMoved to the tab strip while dragging with capture.
+					AddHandler(PointerMovedEvent, _linuxTabDragMoveHandler, handledEventsToo: true);
+					AddHandler(PointerReleasedEvent, _linuxTabDragReleaseHandler, handledEventsToo: true);
+				}
+				else
+				{
+					_tabStrip.PointerMoved += OnTabStripPointerMoved;
+					_tabStrip.PointerReleased += OnTabStripPointerReleased;
+				}
 				_tabStrip.PointerCaptureLost += (_, _) => _dragTab = null;
 				_tabStrip.RightTapped     += OnTabStripRightTapped;
 			}
@@ -192,10 +206,28 @@ namespace AvalonDock.Controls
 				_manager = null;
 			}
 			RemoveHandler(PointerPressedEvent, _panePressedHandler);
+			RemoveHandler(PointerMovedEvent, _linuxTabDragMoveHandler);
+			RemoveHandler(PointerReleasedEvent, _linuxTabDragReleaseHandler);
 			if (_ctrlTabHandler is null) return;
 			if (XamlRoot?.Content is UIElement root)
 				root.RemoveHandler(KeyDownEvent, _ctrlTabHandler);
 			_ctrlTabHandler = null;
+		}
+
+		private void OnLinuxTabDragPointerMoved(object sender, PointerRoutedEventArgs e)
+		{
+			if (!OperatingSystem.IsLinux() || _dragTab == null)
+				return;
+
+			OnTabStripPointerMoved(_tabStrip, e);
+		}
+
+		private void OnLinuxTabDragPointerReleased(object sender, PointerRoutedEventArgs e)
+		{
+			if (!OperatingSystem.IsLinux() || _dragTab == null)
+				return;
+
+			OnTabStripPointerReleased(_tabStrip, e);
 		}
 
 		private void CycleDocument(bool reverse)
@@ -246,6 +278,20 @@ namespace AvalonDock.Controls
 						var cursor = WindowsFloatingWindowDragTracker.GetCursorScreen();
 						screenLeft = cursor.X;
 						screenTop = cursor.Y;
+					}
+					else if (OperatingSystem.IsLinux())
+					{
+						// No usable native cursor API on the Uno X11 backend; derive the
+						// screen cursor from the main window origin + the in-window point
+						// (same logical-pixel convention as ComputeScreenOriginLinux).
+						var aw = Microsoft.UI.Xaml.Window.Current?.AppWindow;
+						if (aw != null)
+						{
+							var scale = XamlRoot?.RasterizationScale ?? 1.0;
+							if (scale <= 0) scale = 1.0;
+							screenLeft = aw.Position.X / scale + ptInWindow.X;
+							screenTop = aw.Position.Y / scale + ptInWindow.Y;
+						}
 					}
 
 					var parentSize = _model.Parent as ILayoutPositionableElementWithActualSize;

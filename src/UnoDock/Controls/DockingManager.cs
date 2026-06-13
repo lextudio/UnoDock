@@ -345,6 +345,7 @@ namespace AvalonDock
 		// ── Active drag tracker ────────────────────────────────────────────────
 #if !WINDOWS
 		private FloatingWindowDragTracker _dragTracker;
+		private LinuxFloatingWindowDragTracker _linuxDragTracker;
 		private DispatcherTimer _watchdog;
 		private nint _hostWindowHandle;
 
@@ -372,6 +373,7 @@ namespace AvalonDock
 		{
 #if !WINDOWS
 			if (OperatingSystem.IsMacOS()) return ComputeScreenOriginQ();
+			if (OperatingSystem.IsLinux()) return ComputeScreenOriginLinux();
 #endif
 			return ComputeScreenOriginW();
 		}
@@ -382,6 +384,8 @@ namespace AvalonDock
 #if !WINDOWS
 			if (OperatingSystem.IsMacOS())
 				return AvalonDock.Hosting.MacOSWindowTabbing.GetCursorLocationQuartz();
+			if (OperatingSystem.IsLinux())
+				return LinuxFloatingWindowDragTracker.GetCursorScreen();
 #endif
 			return WindowsFloatingWindowDragTracker.GetCursorScreen();
 		}
@@ -549,16 +553,25 @@ namespace AvalonDock
 					return;
 				}
 #if !WINDOWS
-				AvalonDock.Hosting.MacOSWindowTabbing.DragLog(
-					$"OnTitleBarDragStarted: nsWin=0x{fwc.NsWindowHandle:X} trackerActive={_dragTracker != null}");
 				// Always restart tracking from a fresh state. If a previous drag left a stale
 				// tracker running, keeping it would block all subsequent compass activations.
-				if (_dragTracker != null)
+				if (OperatingSystem.IsMacOS())
 				{
-					_dragTracker.Stop();
-					_dragTracker = null;
+					AvalonDock.Hosting.MacOSWindowTabbing.DragLog(
+						$"OnTitleBarDragStarted: nsWin=0x{fwc.NsWindowHandle:X} trackerActive={_dragTracker != null}");
+					if (_dragTracker != null)
+					{
+						_dragTracker.Stop();
+						_dragTracker = null;
+					}
+					StartDragTracking(fwc, realDrag: true);
+					return;
 				}
-				StartDragTracking(fwc, realDrag: true);
+
+				if (OperatingSystem.IsLinux())
+				{
+					StartLinuxDragTracking(fwc, realDrag: true);
+				}
 #endif
 			};
 
@@ -632,6 +645,10 @@ namespace AvalonDock
 					StartDragTracking(fwc, realDrag: true);
 				}
 				StartWatchdog();
+			}
+			else if (startDrag && OperatingSystem.IsLinux())
+			{
+				StartLinuxDragTracking(fwc, realDrag: true);
 			}
 #endif
 		}
@@ -869,18 +886,25 @@ namespace AvalonDock
 		internal static void DragLogWVerbose(string msg)
 		{
 #if !WINDOWS
-			AvalonDock.Hosting.MacOSWindowTabbing.DragLogVerbose(msg);
-#else
-			if (Environment.GetEnvironmentVariable("UNODOCK_DRAGLOG_VERBOSE") == "1") DragLogW(msg);
+			if (OperatingSystem.IsMacOS())
+			{
+				AvalonDock.Hosting.MacOSWindowTabbing.DragLogVerbose(msg);
+				return;
+			}
 #endif
+			if (Environment.GetEnvironmentVariable("UNODOCK_DRAGLOG_VERBOSE") == "1") DragLogW(msg);
 		}
 
 		internal static void DragLogW(string msg)
 		{
 			if (!DragLogEnabled) return;
 #if !WINDOWS
-			AvalonDock.Hosting.MacOSWindowTabbing.DragLog(msg);
-#else
+			if (OperatingSystem.IsMacOS())
+			{
+				AvalonDock.Hosting.MacOSWindowTabbing.DragLog(msg);
+				return;
+			}
+#endif
 			try
 			{
 				_dragLogPath ??= System.IO.Path.Combine(
@@ -890,7 +914,25 @@ namespace AvalonDock
 						DateTime.Now.ToString("HH:mm:ss.fff") + " " + msg + Environment.NewLine);
 			}
 			catch { }
-#endif
+		}
+
+		private (double X, double Y) ComputeScreenOriginLinux()
+		{
+			try
+			{
+				var xamlRoot = XamlRoot;
+				if (xamlRoot == null) return (0, 0);
+				var pt = this.TransformToVisual(null).TransformPoint(new Windows.Foundation.Point(0, 0));
+				var scale = xamlRoot.RasterizationScale;
+				if (scale <= 0) scale = 1.0;
+				var window = Microsoft.UI.Xaml.Window.Current;
+				var aw = window?.AppWindow;
+				if (aw == null)
+					return (pt.X, pt.Y);
+				var pos = aw.Position;
+				return (pos.X / scale + pt.X, pos.Y / scale + pt.Y);
+			}
+			catch { return (0, 0); }
 		}
 
 		private (double X, double Y) ComputeScreenOriginW()
@@ -994,6 +1036,62 @@ namespace AvalonDock
 			}
 			catch { }
 			return IntPtr.Zero;
+		}
+
+		private void StartLinuxDragTracking(LayoutFloatingWindowControl fwc, bool realDrag = false)
+		{
+			if (fwc == null)
+				return;
+
+			_linuxDragTracker?.Stop();
+			var overlayHost = (Controls.IOverlayWindowHost)this;
+			var overlay = overlayHost.ShowOverlayWindow(fwc);
+			overlay?.DragEnter(fwc);
+			_overlayActiveAreas.Clear();
+			_overlayActiveTarget = null;
+
+			var tracker = new LinuxFloatingWindowDragTracker(fwc, this, skipInitialDelay: realDrag)
+			{
+				ManagerScreenOriginProvider = () => ComputeScreenOriginLinux(),
+			};
+
+			tracker.OnCursorInManagerCoords = (hostX, hostY) =>
+			{
+				var localX = hostX;
+				var localY = hostY;
+				var w = ActualWidth;
+				var h = ActualHeight;
+				const double NearMargin = 64.0;
+
+				var inside = localX >= 0 && localX <= w && localY >= 0 && localY <= h;
+				var near = localX >= -NearMargin && localX <= w + NearMargin
+					&& localY >= -NearMargin && localY <= h + NearMargin;
+				if (inside || near)
+				{
+					UpdateOverlayDragStateForPoint(localX, localY, fwc);
+				}
+				else
+				{
+					ClearActiveOverlayTargets();
+				}
+			};
+
+			tracker.OnDragEnded = () =>
+			{
+				DragLogW("LinuxDragTracker.OnDragEnded: button released -> drag finished");
+				var activeTarget = _overlayActiveTarget;
+				var capturedOverlay = _overlayWindow;
+				if (activeTarget != null && capturedOverlay != null)
+					capturedOverlay.DragDrop(activeTarget);
+
+				EndOverlayDrag(fwc);
+				((Controls.IOverlayWindowHost)this).HideOverlayWindow();
+				_linuxDragTracker = null;
+			};
+
+			_linuxDragTracker = tracker;
+			DragLogW($"StartLinuxDragTracking: realDrag={realDrag} tracker started");
+			tracker.Start();
 		}
 
 		// A usable top-level window: non-null handle that IsWindow confirms AND that yields a
@@ -1415,6 +1513,12 @@ namespace AvalonDock
 				return $"managerSize={w:F0}x{h:F0} templateRoot={tmplOk} activeTarget={activeTargetType} trackerRunning={_windowsDragTracker != null} originComputed=({wox:F0},{woy:F0})";
 			}
 
+			if (OperatingSystem.IsLinux())
+			{
+				var (lox, loy) = ComputeScreenOriginLinux();
+				return $"managerSize={w:F0}x{h:F0} templateRoot={tmplOk} activeTarget={activeTargetType} trackerRunning={_linuxDragTracker != null} originComputed=({lox:F0},{loy:F0})";
+			}
+
 			var (ox, oy) = ComputeScreenOriginQ();
 			return $"managerSize={w:F0}x{h:F0} templateRoot={tmplOk} activeTarget={activeTargetType} trackerRunning={_dragTracker != null} watchdogRunning={_watchdog != null} originComputed=({ox:F0},{oy:F0})";
 #else
@@ -1436,6 +1540,12 @@ namespace AvalonDock
 				return;
 			}
 
+			if (OperatingSystem.IsLinux())
+			{
+				StartLinuxDragTracking(fwc, realDrag: true);
+				return;
+			}
+
 			StartDragTracking(fwc, realDrag: true);
 #else
 			StartWindowsDragTracking(fwc, realDrag: true);
@@ -1447,6 +1557,8 @@ namespace AvalonDock
 			_windowsDragTracker?.Stop();
 			_windowsDragTracker = null;
 #if !WINDOWS
+			_linuxDragTracker?.Stop();
+			_linuxDragTracker = null;
 			_dragTracker?.Stop();
 			_dragTracker = null;
 #endif
@@ -1497,6 +1609,19 @@ namespace AvalonDock
 
 			var fwWidth  = content.FloatingWidth  != 0 ? content.FloatingWidth  : parentPaneActualSize?.ActualWidth  + 10 ?? 400;
 			var fwHeight = content.FloatingHeight != 0 ? content.FloatingHeight : parentPaneActualSize?.ActualHeight + 10 ?? 300;
+
+			if (OperatingSystem.IsLinux())
+			{
+				// GNOME Mutter auto-maximizes X11 windows that map at ≥ ~80% of the work
+				// area, which turns a full-window-sized docked pane into a maximized float.
+				// Clamp the initial float size below that threshold; the user can resize up.
+				var rootSize = XamlRoot?.Size ?? default;
+				if (rootSize.Width > 0 && rootSize.Height > 0)
+				{
+					fwWidth  = Math.Min(fwWidth,  rootSize.Width  * 0.7);
+					fwHeight = Math.Min(fwHeight, rootSize.Height * 0.7);
+				}
+			}
 
 			LayoutFloatingWindowControl fwc;
 
@@ -1570,7 +1695,8 @@ namespace AvalonDock
 		{
 			#if !WINDOWS
 			// Capture the host window now, while no floating/overlay windows exist yet.
-			_hostWindowHandle = AvalonDock.Hosting.MacOSWindowTabbing.GetMainAppWindow(System.Array.Empty<nint>());
+			if (OperatingSystem.IsMacOS())
+				_hostWindowHandle = AvalonDock.Hosting.MacOSWindowTabbing.GetMainAppWindow(System.Array.Empty<nint>());
 			#endif
 			if (Layout != null) RebuildLayoutControls(Layout);
 		}
@@ -1724,6 +1850,36 @@ namespace AvalonDock
 						Title = "UnoDock Overlay",
 						Content = root,
 					};
+					// Linux: this window IS the visible compass surface (unlike Windows,
+					// where it is parked off-screen as a render source for the native
+					// layered window). Strip chrome and pin topmost BEFORE Activate so it
+					// never flashes as a decorated normal window.
+					if (OperatingSystem.IsLinux())
+					{
+						// The Uno X11 renderer clears each frame with Window.Background
+						// (default opaque WHITE) onto its depth-32 ARGB visual, so a
+						// transparent background is the only way to get a per-pixel
+						// transparent window. The property is internal in Uno 6.5
+						// (setter raises the change event the X11 host listens to),
+						// hence reflection.
+						try
+						{
+							var bgProp = typeof(Window).GetProperty(
+								"Background",
+								System.Reflection.BindingFlags.Instance
+									| System.Reflection.BindingFlags.NonPublic
+									| System.Reflection.BindingFlags.Public);
+							bgProp?.SetValue(
+								_overlayNativeWindow,
+								new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0)));
+							DragLogW($"[LinuxOverlay] transparent background set={bgProp != null}");
+						}
+						catch (Exception ex)
+						{
+							DragLogW($"[LinuxOverlay] transparent background failed: {ex.Message}");
+						}
+						StyleLinuxOverlayWindow();
+					}
 					_overlayNativeWindow.Activate();
 				}
 				catch
@@ -1955,7 +2111,35 @@ namespace AvalonDock
 					_overlayNativeWindow.AppWindow.Move(new Windows.Graphics.PointInt32 { X = -32000, Y = -32000 });
 					StyleWindowsOverlayWindow();
 				}
+				else if (OperatingSystem.IsLinux())
+				{
+					// The overlay window is the visible compass surface: align it exactly
+					// over the manager. ComputeScreenOriginLinux returns logical pixels;
+					// AppWindow.Move expects physical.
+					var (ox, oy) = ComputeScreenOriginLinux();
+					_overlayNativeWindow.AppWindow.Move(new Windows.Graphics.PointInt32
+					{
+						X = (int)Math.Round(ox * scale),
+						Y = (int)Math.Round(oy * scale),
+					});
+					StyleLinuxOverlayWindow();
+					DragLogW($"[LinuxOverlay] positioned at ({ox * scale:F0},{oy * scale:F0}) size={width}x{height}");
+				}
 			}
+			catch { }
+		}
+
+		private void StyleLinuxOverlayWindow()
+		{
+			var aw = _overlayNativeWindow?.AppWindow;
+			if (aw?.Presenter is not Microsoft.UI.Windowing.OverlappedPresenter presenter)
+				return;
+
+			try { presenter.SetBorderAndTitleBar(false, false); }
+			catch (Exception ex) { DragLogW($"[LinuxOverlay] SetBorderAndTitleBar failed: {ex.Message}"); }
+			try { presenter.IsAlwaysOnTop = true; }
+			catch (Exception ex) { DragLogW($"[LinuxOverlay] IsAlwaysOnTop failed: {ex.Message}"); }
+			try { presenter.IsResizable = false; }
 			catch { }
 		}
 

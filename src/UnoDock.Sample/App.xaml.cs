@@ -20,8 +20,9 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // Uncomment to enable UnoDock debug logging:
-        // AvalonDock.DockLog.Enable();
+        Environment.SetEnvironmentVariable("UNODOCK_DRAGLOG", "1");
+        Environment.SetEnvironmentVariable("UNODOCK_DRAGLOG_VERBOSE", "1");
+        AvalonDock.DockLog.Enable();
         var window = new MainWindow();
         MainWindow = window;
         // Closing the main window should terminate the whole app — close all
