@@ -1,4 +1,4 @@
-/************************************************************************
+﻿/************************************************************************
    AvalonDock
 
    Copyright (C) 2007-2013 Xceed Software Inc.
@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Markup;
-using System.Xml;
 using System.Xml.Serialization;
 
 namespace AvalonDock.Layout
@@ -30,6 +29,9 @@ namespace AvalonDock.Layout
 		/// <summary>Event is invoked when the visibility of this object has changed.</summary>
 		public event EventHandler IsVisibleChanged;
 
+		/// <summary>
+		/// Gets a value indicating whether this instance is single pane.
+		/// </summary>
 		public bool IsSinglePane => RootPanel != null && RootPanel.Descendents().OfType<ILayoutAnchorablePane>().Count(p => p.IsVisible) == 1;
 
 		/// <summary>Gets/sets whether this object is in a state where it is visible in the UI or not.</summary>
@@ -47,6 +49,9 @@ namespace AvalonDock.Layout
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the root panel.
+		/// </summary>
 		public LayoutAnchorablePaneGroup RootPanel
 		{
 			get => _rootPanel;
@@ -71,6 +76,9 @@ namespace AvalonDock.Layout
 			}
 		}
 
+		/// <summary>
+		/// Gets the single pane.
+		/// </summary>
 		public ILayoutAnchorablePane SinglePane
 		{
 			get
@@ -111,49 +119,6 @@ namespace AvalonDock.Layout
 		/// <inheritdoc />
 		public override bool IsValid => RootPanel != null;
 
-		/// <inheritdoc />
-		public override void ReadXml(XmlReader reader)
-		{
-			reader.MoveToContent();
-			if (reader.IsEmptyElement)
-			{
-				reader.Read();
-				ComputeVisibility();
-				return;
-			}
-
-			var localName = reader.LocalName;
-			reader.Read();
-
-			while (true)
-			{
-				if (reader.LocalName.Equals(localName) && reader.NodeType == XmlNodeType.EndElement) break;
-
-				if (reader.NodeType == XmlNodeType.Whitespace)
-				{
-					reader.Read();
-					continue;
-				}
-
-				XmlSerializer serializer;
-				if (reader.LocalName.Equals(nameof(LayoutAnchorablePaneGroup)))
-				{
-					serializer = XmlSerializersCache.GetSerializer<LayoutAnchorablePaneGroup>();
-				}
-				else
-				{
-					var type = LayoutRoot.FindType(reader.LocalName);
-					if (type == null)
-						throw new ArgumentException("AvalonDock.LayoutAnchorableFloatingWindow doesn't know how to deserialize " + reader.LocalName);
-					serializer = XmlSerializersCache.GetSerializer(type);
-				}
-
-				RootPanel = (LayoutAnchorablePaneGroup)serializer.Deserialize(reader);
-			}
-
-			reader.ReadEndElement();
-		}
-
 #if TRACE
 		/// <inheritdoc />
 		public override void ConsoleDump(int tab)
@@ -165,12 +130,20 @@ namespace AvalonDock.Layout
 		}
 #endif
 
+		/// <summary>
+		/// Executes the root panel children tree changed operation.
+		/// </summary>
+		/// <param name="sender">The sender.</param>
+		/// <param name="e">The e.</param>
 		private void _rootPanel_ChildrenTreeChanged(object sender, ChildrenTreeChangedEventArgs e)
 		{
 			RaisePropertyChanged(nameof(IsSinglePane));
 			RaisePropertyChanged(nameof(SinglePane));
 		}
 
+		/// <summary>
+		/// Executes the compute visibility operation.
+		/// </summary>
 		private void ComputeVisibility() => IsVisible = RootPanel != null && RootPanel.IsVisible;
 	}
 }

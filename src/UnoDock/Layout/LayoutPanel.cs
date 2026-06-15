@@ -22,13 +22,17 @@ namespace AvalonDock.Layout
 	{
 		private Orientation _orientation;
 
-		/// <summary>Class constructor</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutPanel"/> class.
+		/// </summary>
 		public LayoutPanel()
 		{
 		}
 
-		/// <summary>Class constructor</summary>
-		/// <param name="firstChild"></param>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutPanel"/> class.
+		/// </summary>
+		/// <param name="firstChild">The first child.</param>
 		public LayoutPanel(ILayoutPanelElement firstChild)
 		{
 			Children.Add(firstChild);
@@ -73,36 +77,6 @@ namespace AvalonDock.Layout
 
 		/// <inheritdoc />
 		protected override bool GetVisibility() => Children.Any(c => c.IsVisible);
-
-		/// <inheritdoc />
-		public override void WriteXml(System.Xml.XmlWriter writer)
-		{
-			writer.WriteAttributeString(nameof(Orientation), Orientation.ToString());
-
-			if (CanDock == false)
-				writer.WriteAttributeString(nameof(CanDock), CanDock.ToString());
-
-			base.WriteXml(writer);
-		}
-
-		/// <inheritdoc />
-		/// <summary>
-		/// This method is never invoked - <see cref="LayoutRoot"/>.ReadRootPanel()
-		/// for implementation of this reader.
-		/// </summary>
-		public override void ReadXml(System.Xml.XmlReader reader)
-		{
-			if (reader.MoveToAttribute(nameof(Orientation)))
-				Orientation = (Orientation)Enum.Parse(typeof(Orientation), reader.Value, true);
-			if (reader.MoveToAttribute(nameof(CanDock)))
-			{
-				var canDockStr = reader.GetAttribute("CanDock");
-				if (canDockStr != null)
-					CanDock = bool.Parse(canDockStr);
-			}
-
-			base.ReadXml(reader);
-		}
 
 #if TRACE
 		/// <inheritdoc />

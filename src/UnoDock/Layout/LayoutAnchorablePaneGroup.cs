@@ -25,12 +25,17 @@ namespace AvalonDock.Layout
 	{
 		private Orientation _orientation;
 
-		/// <summary>Class constructor</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutAnchorablePaneGroup"/> class.
+		/// </summary>
 		public LayoutAnchorablePaneGroup()
 		{
 		}
 
-		/// <summary>Class constructor <paramref name="firstChild"/> to be inserted into collection of children models.</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutAnchorablePaneGroup"/> class.
+		/// </summary>
+		/// <param name="firstChild">The first child.</param>
 		public LayoutAnchorablePaneGroup(LayoutAnchorablePane firstChild)
 		{
 			Children.Add(firstChild);
@@ -87,21 +92,6 @@ namespace AvalonDock.Layout
 			base.OnChildrenCollectionChanged();
 		}
 
-		/// <inheritdoc />
-		public override void WriteXml(System.Xml.XmlWriter writer)
-		{
-			writer.WriteAttributeString(nameof(Orientation), Orientation.ToString());
-			base.WriteXml(writer);
-		}
-
-		/// <inheritdoc />
-		public override void ReadXml(System.Xml.XmlReader reader)
-		{
-			if (reader.MoveToAttribute(nameof(Orientation)))
-				Orientation = (Orientation)Enum.Parse(typeof(Orientation), reader.Value, true);
-			base.ReadXml(reader);
-		}
-
 #if TRACE
 		/// <inheritdoc />
 		public override void ConsoleDump(int tab)
@@ -114,6 +104,9 @@ namespace AvalonDock.Layout
 		}
 #endif
 
+		/// <summary>
+		/// Updates the parent visibility.
+		/// </summary>
 		private void UpdateParentVisibility()
 		{
 			if (Parent is ILayoutElementWithVisibility parentPane) parentPane.ComputeVisibility();

@@ -18,29 +18,15 @@ namespace AvalonDock.Layout
 	/// </summary>
 	[ContentProperty(Name = nameof(Children))]
 	[Serializable]
-	public class LayoutAnchorGroup : LayoutGroup<LayoutAnchorable>, ILayoutPreviousContainer, ILayoutPaneSerializable
+	public class LayoutAnchorGroup : LayoutGroup<LayoutAnchorable>, ILayoutPreviousContainer, ILayoutPaneSerializable, Core.Serialization.ISerializableLayoutPane
 	{
 		/// <inheritdoc />
 		protected override bool GetVisibility() => Children.Count > 0;
 
-		/// <inheritdoc />
-		public override void WriteXml(System.Xml.XmlWriter writer)
-		{
-			if (_id != null) writer.WriteAttributeString(nameof(ILayoutPaneSerializable.Id), _id);
-			if (_previousContainer is ILayoutPaneSerializable paneSerializable) writer.WriteAttributeString("PreviousContainerId", paneSerializable.Id);
-			base.WriteXml(writer);
-		}
-
-		public override void ReadXml(System.Xml.XmlReader reader)
-		{
-			if (reader.MoveToAttribute(nameof(ILayoutPaneSerializable.Id))) _id = reader.Value;
-			if (reader.MoveToAttribute("PreviousContainerId")) ((ILayoutPreviousContainer)this).PreviousContainerId = reader.Value;
-			base.ReadXml(reader);
-		}
-
 		[field: NonSerialized]
 		private ILayoutContainer _previousContainer = null;
 
+		/// <inheritdoc />
 		[XmlIgnore]
 		ILayoutContainer ILayoutPreviousContainer.PreviousContainer
 		{
@@ -55,11 +41,15 @@ namespace AvalonDock.Layout
 			}
 		}
 
+		/// <inheritdoc />
 		string ILayoutPreviousContainer.PreviousContainerId { get; set; }
 
 		private string _id;
 
 		/// <inheritdoc />
 		string ILayoutPaneSerializable.Id { get => _id; set => _id = value; }
+
+		/// <inheritdoc />
+		string Core.Serialization.ISerializableLayoutPane.Id { get => _id; set => _id = value; }
 	}
 }

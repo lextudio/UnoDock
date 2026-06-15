@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using AvalonDock;
 using AvalonDock.Controls;
 using AvalonDock.Layout;
-using AvalonDock.Layout.Serialization;
+using AvalonDock.Serializer.Xml;
 using LeXtudio.DevFlow.Agent.Core;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;

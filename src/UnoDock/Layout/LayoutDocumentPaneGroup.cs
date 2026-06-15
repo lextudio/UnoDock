@@ -23,12 +23,17 @@ namespace AvalonDock.Layout
 	{
 		private Orientation _orientation;
 
-		/// <summary>Class constructor</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutDocumentPaneGroup"/> class.
+		/// </summary>
 		public LayoutDocumentPaneGroup()
 		{
 		}
 
-		/// <summary>Class constructor from <paramref name="documentPane"/> that is added into the children collection of this object.</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutDocumentPaneGroup"/> class.
+		/// </summary>
+		/// <param name="documentPane">The document pane.</param>
 		public LayoutDocumentPaneGroup(LayoutDocumentPane documentPane)
 		{
 			Children.Add(documentPane);
@@ -49,20 +54,6 @@ namespace AvalonDock.Layout
 
 		/// <inheritdoc />
 		protected override bool GetVisibility() => true;
-
-		/// <inheritdoc />
-		public override void WriteXml(System.Xml.XmlWriter writer)
-		{
-			writer.WriteAttributeString(nameof(Orientation), Orientation.ToString());
-			base.WriteXml(writer);
-		}
-
-		/// <inheritdoc />
-		public override void ReadXml(System.Xml.XmlReader reader)
-		{
-			if (reader.MoveToAttribute(nameof(Orientation))) Orientation = (Orientation)Enum.Parse(typeof(Orientation), reader.Value, true);
-			base.ReadXml(reader);
-		}
 
 #if TRACE
 		/// <inheritdoc />

@@ -43,6 +43,10 @@ namespace System.Windows.Controls
 		public DataTemplateSelector SelectedContentTemplateSelector { get; set; }
 		public string SelectedContentStringFormat { get; set; }
 
+		// In Roma/WindowsShims-integrated builds the real shim type is available from
+		// LeXtudio.Windows. The TabControlEx paths that touch this member are not used
+		// in the current UnoDock runtime path, so return null instead of carrying a
+		// duplicate public ItemContainerGenerator type in this assembly.
 		public ItemContainerGenerator ItemContainerGenerator { get; } = new ItemContainerGenerator();
 
 		// WPF calls GetVisualChild(0) to find the top-level Grid template part.
@@ -69,29 +73,6 @@ namespace System.Windows.Controls
 
 namespace System.Windows.Controls
 {
-	// ItemContainerGenerator: WPF-only mechanism for mapping items ↔ containers.
-	// TabControlEx uses it to find the TabItem for a selected item, but only in
-	// the non-virtualizing path (_IsVirtualizing = false). All callers in our
-	// ported controls use isVirtualizing = true, so this stub's methods are
-	// never invoked at runtime.
-	public class ItemContainerGenerator
-	{
-		#pragma warning disable CS0067
-		public event EventHandler StatusChanged;
-		#pragma warning restore CS0067
-		public GeneratorStatus Status => GeneratorStatus.ContainersGenerated;
-		public UIElement ContainerFromIndex(int index) => null;
-		public UIElement ContainerFromItem(object item) => null;
-	}
-
-	public enum GeneratorStatus
-	{
-		NotStarted,
-		GeneratingContainers,
-		ContainersGenerated,
-		Error,
-	}
-
 	// Stub: WPF TabItem — only used as a type-check in TabControlEx.
 	public class TabItem : ContentControl { }
 }

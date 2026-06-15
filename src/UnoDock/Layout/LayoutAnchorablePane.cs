@@ -19,7 +19,7 @@ namespace AvalonDock.Layout
 	/// </summary>
 	[ContentProperty(Name = nameof(Children))]
 	[Serializable]
-	public class LayoutAnchorablePane : LayoutPositionableGroup<LayoutAnchorable>, ILayoutAnchorablePane, ILayoutPositionableElement, ILayoutContentSelector, ILayoutPaneSerializable
+	public class LayoutAnchorablePane : LayoutPositionableGroup<LayoutAnchorable>, ILayoutAnchorablePane, ILayoutPositionableElement, ILayoutContentSelector, ILayoutPaneSerializable, Core.Serialization.ISerializableLayoutPane
 	{
 		private int _selectedIndex = -1;
 
@@ -29,12 +29,17 @@ namespace AvalonDock.Layout
 		private string _name = null;
 		private string _id;
 
-		/// <summary>Class constructor</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutAnchorablePane"/> class.
+		/// </summary>
 		public LayoutAnchorablePane()
 		{
 		}
 
-		/// <summary>Class constructor from <see cref="LayoutAnchorable"/> which will be added into its children collection.</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutAnchorablePane"/> class.
+		/// </summary>
+		/// <param name="anchorable">The anchorable.</param>
 		public LayoutAnchorablePane(LayoutAnchorable anchorable)
 		{
 			Children.Add(anchorable);
@@ -84,8 +89,15 @@ namespace AvalonDock.Layout
 		/// <summary>Gets the selected content in the pane or null.</summary>
 		public LayoutContent SelectedContent => _selectedIndex == -1 ? null : Children[_selectedIndex];
 
-		/// <summary>Gets/sets the unique id that is used for the serialization of this panel.</summary>
+		/// <inheritdoc />
 		string ILayoutPaneSerializable.Id
+		{
+			get => _id;
+			set => _id = value;
+		}
+
+		/// <inheritdoc />
+		string Core.Serialization.ISerializableLayoutPane.Id
 		{
 			get => _id;
 			set => _id = value;
@@ -133,25 +145,6 @@ namespace AvalonDock.Layout
 			base.OnParentChanged(oldValue, newValue);
 		}
 
-		/// <inheritdoc />
-		public override void WriteXml(System.Xml.XmlWriter writer)
-		{
-			if (_id != null) writer.WriteAttributeString(nameof(ILayoutPaneSerializable.Id), _id);
-			if (_name != null) writer.WriteAttributeString(nameof(Name), _name);
-			base.WriteXml(writer);
-		}
-
-		/// <inheritdoc />
-		public override void ReadXml(System.Xml.XmlReader reader)
-		{
-			if (reader.MoveToAttribute(nameof(ILayoutPaneSerializable.Id))) _id = reader.Value;
-			if (reader.MoveToAttribute(nameof(Name))) _name = reader.Value;
-			_autoFixSelectedContent = false;
-			base.ReadXml(reader);
-			_autoFixSelectedContent = true;
-			AutoFixSelectedContent();
-		}
-
 #if TRACE
 		/// <inheritdoc />
 		public override void ConsoleDump(int tab)
@@ -168,7 +161,8 @@ namespace AvalonDock.Layout
 		/// Gets the index of the layout content (which is required to be a <see cref="LayoutAnchorable"/>)
 		/// or -1 if the layout content is not a <see cref="LayoutAnchorable"/> or is not part of the childrens collection.
 		/// </summary>
-		/// <param name="content"></param>
+		/// <param name="content">The layout content.</param>
+		/// <returns>The resulting value.</returns>
 		public int IndexOf(LayoutContent content)
 		{
 			if (!(content is LayoutAnchorable anchorableChild)) return -1;
@@ -207,6 +201,9 @@ namespace AvalonDock.Layout
 		/// </summary>
 		internal void UpdateIsDirectlyHostedInFloatingWindow() => RaisePropertyChanged(nameof(IsDirectlyHostedInFloatingWindow));
 
+		/// <summary>
+		/// Executes the auto fix selected content operation.
+		/// </summary>
 		private void AutoFixSelectedContent()
 		{
 			if (!_autoFixSelectedContent) return;
@@ -221,6 +218,11 @@ namespace AvalonDock.Layout
 			SelectedContentIndex = Children.IndexOf(lastActivatedDocument);
 		}
 
+		/// <summary>
+		/// Executes the on parent children collection changed operation.
+		/// </summary>
+		/// <param name="sender">The sender.</param>
+		/// <param name="e">The e.</param>
 		private void OnParentChildrenCollectionChanged(object sender, EventArgs e) => RaisePropertyChanged(nameof(IsDirectlyHostedInFloatingWindow));
 	}
 }

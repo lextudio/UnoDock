@@ -23,7 +23,7 @@ namespace AvalonDock.Layout
 	/// class supports both
 	/// </summary>
 	[Serializable]
-	public abstract partial class LayoutElement : DependencyObject, ILayoutElement
+	public abstract partial class LayoutElement : DependencyObject, ILayoutElement, Core.Serialization.ISerializableLayoutElement
 	{
 		[NonSerialized]
 		private ILayoutContainer _parent = null;
@@ -32,7 +32,7 @@ namespace AvalonDock.Layout
 		private ILayoutRoot _root = null;
 
 		/// <summary>
-		/// Class constructor
+		/// Initializes a new instance of the <see cref="LayoutElement"/> class.
 		/// </summary>
 		internal LayoutElement()
 		{
@@ -90,6 +90,10 @@ namespace AvalonDock.Layout
 		}
 
 #if TRACE
+		/// <summary>
+		/// Dumps this layout element to the trace output.
+		/// </summary>
+		/// <param name="tab">The indentation level.</param>
 		public virtual void ConsoleDump(int tab)
 		{
 			System.Diagnostics.Trace.Write(new string(' ', tab * 4));
@@ -101,37 +105,51 @@ namespace AvalonDock.Layout
 		/// When deserializing layout enclosing element parent is set later than this parent
 		/// We need to update it, otherwise when deleting this element <see cref="LayoutRoot.ElementRemoved" /> will no be called
 		/// </summary>
-		internal void FixCachedRootOnDeserialize()
+		public void FixCachedRootOnDeserialize()
 		{
 			if (_root == null)
 				_root = Root;
 		}
 
-		/// <summary>Provides derived classes an opportunity to handle execute code before to the <see cref="Parent"/> property changes.</summary>
+		/// <summary>
+		/// Executes the on parent changing operation.
+		/// </summary>
+		/// <param name="oldValue">The previous value.</param>
+		/// <param name="newValue">The new value.</param>
 		protected virtual void OnParentChanging(ILayoutContainer oldValue, ILayoutContainer newValue)
 		{
 		}
 
-		/// <summary>Provides derived classes an opportunity to handle changes to the <see cref="Parent"/> property.</summary>
+		/// <summary>
+		/// Executes the on parent changed operation.
+		/// </summary>
+		/// <param name="oldValue">The previous value.</param>
+		/// <param name="newValue">The new value.</param>
 		protected virtual void OnParentChanged(ILayoutContainer oldValue, ILayoutContainer newValue)
 		{
 		}
 
-		/// <summary>Provides derived classes an opportunity to handle changes to the <see cref="Root"/> property.</summary>
+		/// <summary>
+		/// Executes the on root changed operation.
+		/// </summary>
+		/// <param name="oldRoot">The old root.</param>
+		/// <param name="newRoot">The new root.</param>
 		protected virtual void OnRootChanged(ILayoutRoot oldRoot, ILayoutRoot newRoot)
 		{
 			((LayoutRoot)oldRoot)?.OnLayoutElementRemoved(this);
 			((LayoutRoot)newRoot)?.OnLayoutElementAdded(this);
 		}
 
-		/// <summary>Should be invoked to raise the <see cref="PropertyChanged"/> event for the property named in <paramref name="propertyName"/>.
-		/// This event should be fired AFTER changing properties with viewmodel binding support.
+		/// <summary>
+		/// Raises the property changed.
 		/// </summary>
+		/// <param name="propertyName">The property name.</param>
 		protected virtual void RaisePropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-		/// <summary>Should be invoked to raise the <see cref="RaisePropertyChanging"/> event for the property named in <paramref name="propertyName"/>.
-		/// This event should be fired BEFORE changing properties with viewmodel binding support.
+		/// <summary>
+		/// Raises the property changing.
 		/// </summary>
+		/// <param name="propertyName">The property name.</param>
 		protected virtual void RaisePropertyChanging(string propertyName) => PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
 	}
 }

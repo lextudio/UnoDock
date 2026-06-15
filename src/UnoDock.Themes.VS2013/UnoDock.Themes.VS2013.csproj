@@ -39,6 +39,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UnoDock\UnoDock.csproj" />
+    <!-- LeXtudio.Windows is needed so the Uno XAML compiler can resolve the
+         System.Windows.Controls.ContentControl base class chain from UnoDock controls. -->
+    <ProjectReference Include="..\..\..\WindowsShims\src\LeXtudio.Windows\LeXtudio.Windows.csproj"
+                      Aliases="global,winshims"
+                      Condition="'$(UseNuGetPackages)' != 'true'" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
+    <PackageReference Include="LeXtudio.Windows" Aliases="global,winshims" />
   </ItemGroup>
 
   <ItemGroup>

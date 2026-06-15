@@ -21,7 +21,7 @@ namespace AvalonDock.Layout
 	/// </summary>
 	[ContentProperty(Name = nameof(Children))]
 	[Serializable]
-	public class LayoutDocumentPane : LayoutPositionableGroup<LayoutContent>, ILayoutDocumentPane, ILayoutPositionableElement, ILayoutContentSelector, ILayoutPaneSerializable
+	public class LayoutDocumentPane : LayoutPositionableGroup<LayoutContent>, ILayoutDocumentPane, ILayoutPositionableElement, ILayoutContentSelector, ILayoutPaneSerializable, Core.Serialization.ISerializableLayoutPane
 	{
 		private bool _showHeader = true;
 		private int _selectedIndex = -1;
@@ -30,7 +30,9 @@ namespace AvalonDock.Layout
 		[XmlIgnore]
 		private readonly bool _autoFixSelectedContent = true;
 
-		/// <summary>Standard class constructor</summary>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutDocumentPane"/> class.
+		/// </summary>
 		public LayoutDocumentPane()
 		{
 		}
@@ -39,7 +41,7 @@ namespace AvalonDock.Layout
 		/// Class constructor from <see cref="LayoutContent"/> to be inserted in <see cref="Children"/>
 		/// collection of this object.
 		/// </summary>
-		/// <param name="firstChild"></param>
+		/// <param name="firstChild">The first child.</param>
 		public LayoutDocumentPane(LayoutContent firstChild)
 		{
 			Children.Add(firstChild);
@@ -75,11 +77,20 @@ namespace AvalonDock.Layout
 			}
 		}
 
-		/// <inheritdoc cref="ILayoutContentSelector"/>
+		/// <summary>
+		/// Gets the selected content.
+		/// </summary>
 		public LayoutContent SelectedContent => _selectedIndex == -1 ? null : Children[_selectedIndex];
 
 		/// <inheritdoc />
 		string ILayoutPaneSerializable.Id
+		{
+			get => _id;
+			set => _id = value;
+		}
+
+		/// <inheritdoc/>
+		string Core.Serialization.ISerializableLayoutPane.Id
 		{
 			get => _id;
 			set => _id = value;
@@ -139,6 +150,9 @@ namespace AvalonDock.Layout
 			RaisePropertyChanged(nameof(ChildrenSorted));
 		}
 
+		/// <summary>
+		/// Executes the auto fix selected content operation.
+		/// </summary>
 		private void AutoFixSelectedContent()
 		{
 			if (!_autoFixSelectedContent) return;
@@ -159,22 +173,6 @@ namespace AvalonDock.Layout
 			}
 		}
 
-		/// <inheritdoc/>
-		public override void WriteXml(System.Xml.XmlWriter writer)
-		{
-			if (_id != null) writer.WriteAttributeString(nameof(ILayoutPaneSerializable.Id), _id);
-			if (!_showHeader) writer.WriteAttributeString(nameof(ShowHeader), _showHeader.ToString());
-			base.WriteXml(writer);
-		}
-
-		/// <inheritdoc/>
-		public override void ReadXml(System.Xml.XmlReader reader)
-		{
-			if (reader.MoveToAttribute(nameof(ILayoutPaneSerializable.Id))) _id = reader.Value;
-			if (reader.MoveToAttribute(nameof(ShowHeader))) _showHeader = bool.Parse(reader.Value);
-			base.ReadXml(reader);
-		}
-
 #if TRACE
 		/// <inheritdoc/>
 		public override void ConsoleDump(int tab)
@@ -187,9 +185,11 @@ namespace AvalonDock.Layout
 		}
 #endif
 
-		/// <summary>Gets the index of the <paramref name="content"/> in the Children collection or -1</summary>
-		/// <param name="content"></param>
-		/// <returns></returns>
+		/// <summary>
+		/// Executes the index of operation.
+		/// </summary>
+		/// <param name="content">The layout content.</param>
+		/// <returns>The resulting value.</returns>
 		public int IndexOf(LayoutContent content)
 		{
 			return !(content is LayoutDocument documentChild) ? -1 : Children.IndexOf(documentChild);
@@ -226,7 +226,7 @@ namespace AvalonDock.Layout
 			base.OnParentChanged(oldValue, newValue);
 		}
 
-		/// <inheritdoc/>
+		/// <inheritdoc />
 		private void OnParentChildrenCollectionChanged(object sender, EventArgs e) => RaisePropertyChanged(nameof(IsDirectlyHostedInFloatingWindow));
 	}
 }

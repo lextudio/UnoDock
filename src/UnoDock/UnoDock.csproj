@@ -30,7 +30,7 @@
     <PackageProjectUrl>https://github.com/lextudio/UnoDock</PackageProjectUrl>
     <RepositoryUrl>https://github.com/lextudio/UnoDock</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <UseNuGetPackages>true</UseNuGetPackages>
+    <UseNuGetPackages>false</UseNuGetPackages>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
@@ -59,6 +59,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Core\AvalonDock.Core.csproj" />
+    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Serializer.Xml\AvalonDock.Serializer.Xml.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\images\company_logo_512.png" Pack="true" PackagePath="/" />
     <None Include="..\..\README.md" Pack="true" PackagePath="/" />
     <None Include="..\..\LICENSE" Pack="true" PackagePath="/" />
@@ -67,6 +72,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\ILayoutEngine.cs" Link="ILayoutEngine.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\DefaultLayoutEngine.cs" Link="DefaultLayoutEngine.cs" />
+    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Serialization\LayoutDtoMapper.cs" Link="Serialization\LayoutDtoMapper.cs" />
     <Compile Include="GlobalUsings.cs" />
     <Compile Include="DockLog.cs" />
     <Compile Include="Compatibility\**\*.cs" />
@@ -130,7 +138,6 @@
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\IOverlayWindow.cs"          Link="Controls\IOverlayWindow.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\IOverlayWindowHost.cs"      Link="Controls\IOverlayWindowHost.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\IDropTarget.cs"             Link="Controls\IDropTarget.cs" />
-    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\DropTargetType.cs"          Link="Controls\DropTargetType.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\ReentrantFlag.cs"           Link="Controls\ReentrantFlag.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\FullWeakDictionary.cs"      Link="Controls\FullWeakDictionary.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\WeakDictionary.cs"          Link="Controls\WeakDictionary.cs" />
@@ -138,8 +145,6 @@
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayWindow.cs" Link="Controls\OverlayWindow.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayIndicatorVisibility.cs" Link="Controls\OverlayIndicatorVisibility.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayIndicatorContext.cs" Link="Controls\OverlayIndicatorContext.cs" />
-    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayPreviewRules.cs" Link="Controls\OverlayPreviewRules.cs" />
-    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Controls\OverlayTabTargetRules.cs" Link="Controls\OverlayTabTargetRules.cs" />
     <!-- IAdjustableSizeLayout and ILayoutControl are already picked up by the Layout/**/*.cs glob above. -->
     <!-- LayoutGridResizerControl forked to Controls/ — WinUI Thumb is sealed so can't be subclassed. -->
     <!-- LayoutGridControl: shared core linked from externals (partial class).
@@ -159,23 +164,12 @@
              Link="Commands\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
-  <!-- Phase 1: root-level helpers the model layer depends on. XmlSerializersCache
-       and MathHelper are platform-neutral. Win32Helper is P/Invoke that compiles
+  <!-- Phase 1: root-level helpers the model layer depends on. MathHelper is
+       platform-neutral. Win32Helper is P/Invoke that compiles
        on every target (only invoked on Windows; the model's serialization path
        never calls it). -->
   <ItemGroup>
-    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\XmlSerializersCache.cs" Link="XmlSerializersCache.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\MathHelper.cs" Link="MathHelper.cs" />
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Win32Helper.cs" Link="Win32Helper.cs" />
-  </ItemGroup>
-
-  <!-- Phase 8: Serialization — XmlLayoutSerializer saves/restores layout to XML. -->
-  <ItemGroup>
-    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\LayoutSerializationCallbackEventArgs.cs"
-             Link="Layout\Serialization\LayoutSerializationCallbackEventArgs.cs" />
-    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\LayoutSerializer.cs"
-             Link="Layout\Serialization\LayoutSerializer.cs" />
-    <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\XmlLayoutSerializer.cs"
-             Link="Layout\Serialization\XmlLayoutSerializer.cs" />
   </ItemGroup>
 </Project>

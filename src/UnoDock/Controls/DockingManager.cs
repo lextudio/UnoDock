@@ -6,6 +6,7 @@
 // The Phase-1 stub partial class in Phase1ControlStubs.cs is superseded by this file.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -23,8 +24,11 @@ using Microsoft.UI.Xaml.Media;
 namespace AvalonDock
 {
 	[ContentProperty(Name = nameof(Layout))]
-	public partial class DockingManager : Control, AvalonDock.Controls.IOverlayWindowHost
+	public partial class DockingManager : Control, AvalonDock.Controls.IOverlayWindowHost, Core.IDockingManager
 	{
+		private readonly ILayoutEngine _layoutEngine = new DefaultLayoutEngine();
+		private readonly Core.Serialization.ILayoutDtoMapper _dtoMapper = new Serialization.LayoutDtoMapper();
+
 		// Static callbacks must be declared before the DPs that reference them.
 		private static readonly Microsoft.UI.Xaml.PropertyChangedCallback _onLayoutChanged =
 			(d, e) => ((DockingManager)d).OnLayoutChangedInternal(e);
@@ -65,6 +69,48 @@ namespace AvalonDock
 #endif
 
 		// ── Layout ──────────────────────────────────────────────────────────────
+
+		public virtual ILayoutEngine LayoutEngine => _layoutEngine;
+
+		Core.Serialization.ISerializableLayoutRoot Core.Serialization.ISerializableDockingManager.Layout
+		{
+			get => Layout;
+			set => Layout = (LayoutRoot)value;
+		}
+
+		Core.Serialization.ILayoutDtoMapper Core.Serialization.ISerializableDockingManager.DtoMapper => _dtoMapper;
+
+		public Core.IRootDock DockLayout { get; set; }
+
+		public IEnumerable DocumentsSource { get; set; }
+
+		public IEnumerable AnchorablesSource { get; set; }
+
+		public int AutoHideDelay { get; set; }
+
+		event EventHandler Core.IDockingManager.LayoutChanged { add { } remove { } }
+
+		event EventHandler Core.IDockingManager.LayoutChanging { add { } remove { } }
+
+		event EventHandler<Core.Events.DocumentCancelEventArgs> Core.IDockingManager.DocumentClosing { add { } remove { } }
+
+		event EventHandler<Core.Events.DocumentEventArgs> Core.IDockingManager.DocumentClosed { add { } remove { } }
+
+		event EventHandler<Core.Events.AnchorableCancelEventArgs> Core.IDockingManager.AnchorableClosing { add { } remove { } }
+
+		event EventHandler<Core.Events.AnchorableEventArgs> Core.IDockingManager.AnchorableClosed { add { } remove { } }
+
+		event EventHandler<Core.Events.AnchorableCancelEventArgs> Core.IDockingManager.AnchorableHiding { add { } remove { } }
+
+		event EventHandler<Core.Events.AnchorableEventArgs> Core.IDockingManager.AnchorableHidden { add { } remove { } }
+
+		event EventHandler<Core.Events.ContentCancelEventArgs> Core.IDockingManager.ContentFloating { add { } remove { } }
+
+		event EventHandler<Core.Events.ContentEventArgs> Core.IDockingManager.ContentFloated { add { } remove { } }
+
+		event EventHandler<Core.Events.ContentCancelEventArgs> Core.IDockingManager.ContentDocking { add { } remove { } }
+
+		event EventHandler<Core.Events.ContentEventArgs> Core.IDockingManager.ContentDocked { add { } remove { } }
 
 		public static readonly DependencyProperty LayoutProperty =
 			DependencyProperty.Register(nameof(Layout), typeof(LayoutRoot), typeof(DockingManager),

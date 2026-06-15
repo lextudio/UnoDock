@@ -82,6 +82,18 @@ namespace AvalonDock.Controls
 					(e.PropertyName == nameof(LayoutContent.IsSelected)
 						? $"{(sender as LayoutContent)?.IsSelected}"
 						: $"{(sender as LayoutContent)?.IsActive}"));
+
+			// When a child's active state changes — whether from a tab click here or
+			// from DockingManager.ActiveContent moving elsewhere (LayoutRoot deactivates
+			// the previous content) — repaint the header so it turns blue on activation
+			// and back to gray on deactivation. Clicking the already-selected tab does
+			// not change SelectedContentIndex, so SyncSelection never runs; this is the
+			// only path that keeps the header chrome in sync in that case.
+			if (e.PropertyName == nameof(LayoutContent.IsActive))
+			{
+				UpdateHeaderChrome(_model.SelectedContent as LayoutAnchorable);
+				UpdateTabHighlights(_model.SelectedContent);
+			}
 		}
 
 		[Bindable(false)]
@@ -279,6 +291,11 @@ namespace AvalonDock.Controls
 				{
 					var idx = _model.Children.IndexOf(la);
 					if (idx >= 0) _model.SelectedContentIndex = idx;
+					// Activate explicitly: clicking the already-selected tab does not
+					// change SelectedContentIndex, so SyncSelection never runs and
+					// IsActive would stay false. Set it here so any tool-tab click
+					// activates the pane and turns its header blue (VS2013 behavior).
+					if (!la.IsActive) la.IsActive = true;
 					// Start tracking for drag-to-float
 					_dragTab = la;
 					var startPt = e.GetCurrentPoint(_tabStrip).Position;

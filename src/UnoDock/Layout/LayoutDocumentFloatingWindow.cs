@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Markup;
-using System.Xml;
 using System.Xml.Serialization;
 
 namespace AvalonDock.Layout
@@ -27,8 +26,14 @@ namespace AvalonDock.Layout
 		[NonSerialized]
 		private bool _isVisible = true;
 
+		/// <summary>
+		/// Occurs when the is visible changed event is raised.
+		/// </summary>
 		public event EventHandler IsVisibleChanged;
 
+		/// <summary>
+		/// Gets or sets the root panel.
+		/// </summary>
 		public LayoutDocumentPaneGroup RootPanel
 		{
 			get => _rootPanel;
@@ -50,14 +55,25 @@ namespace AvalonDock.Layout
 			}
 		}
 
+		/// <summary>
+		/// Executes the root panel children tree changed operation.
+		/// </summary>
+		/// <param name="sender">The sender.</param>
+		/// <param name="e">The e.</param>
 		private void _rootPanel_ChildrenTreeChanged(object sender, ChildrenTreeChangedEventArgs e)
 		{
 			RaisePropertyChanged(nameof(IsSinglePane));
 			RaisePropertyChanged(nameof(SinglePane));
 		}
 
+		/// <summary>
+		/// Gets a value indicating whether this instance is single pane.
+		/// </summary>
 		public bool IsSinglePane => RootPanel?.Descendents().OfType<LayoutDocumentPane>().Count(p => p.IsVisible) == 1;
 
+		/// <summary>
+		/// Gets the single pane.
+		/// </summary>
 		public LayoutDocumentPane SinglePane
 		{
 			get
@@ -69,6 +85,9 @@ namespace AvalonDock.Layout
 			}
 		}
 
+		/// <summary>
+		/// Gets a value indicating whether this instance is visible.
+		/// </summary>
 		[XmlIgnore]
 		public bool IsVisible
 		{
@@ -111,47 +130,8 @@ namespace AvalonDock.Layout
 		/// <inheritdoc />
 		public override bool IsValid => RootPanel != null;
 
-		/// <inheritdoc />
-		public override void ReadXml(XmlReader reader)
-		{
-			reader.MoveToContent();
-			if (reader.IsEmptyElement)
-			{
-				reader.Read();
-				return;
-			}
-
-			var localName = reader.LocalName;
-			reader.Read();
-
-			while (true)
-			{
-				if (reader.LocalName.Equals(localName) && reader.NodeType == XmlNodeType.EndElement) break;
-				if (reader.NodeType == XmlNodeType.Whitespace)
-				{
-					reader.Read();
-					continue;
-				}
-
-				XmlSerializer serializer;
-				if (reader.LocalName.Equals(nameof(LayoutDocument)))
-				{
-					serializer = XmlSerializersCache.GetSerializer<LayoutDocument>();
-				}
-				else
-				{
-					var type = LayoutRoot.FindType(reader.LocalName);
-					if (type == null) throw new ArgumentException("AvalonDock.LayoutDocumentFloatingWindow doesn't know how to deserialize " + reader.LocalName);
-					serializer = XmlSerializersCache.GetSerializer(type);
-				}
-
-				RootPanel = (LayoutDocumentPaneGroup)serializer.Deserialize(reader);
-			}
-
-			reader.ReadEndElement();
-		}
-
 #if TRACE
+		/// <inheritdoc />
 		public override void ConsoleDump(int tab)
 		{
 			System.Diagnostics.Trace.Write(new string(' ', tab * 4));
