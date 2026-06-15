@@ -94,11 +94,22 @@ As of 2026-06-09:
   `OnFixChildrenDockLengths` after the grid is arranged but before the new pane
   controls are, so each pane model still reports `ActualWidth == 0` and got
   pinned at `max(0, min)`. On Uno that refresh runs before the grid is arranged,
-  so the `ActualWidth == 0` early-return is taken and panes simply stay
-  star-sized (balanced thirds). Fix (`#if WINDOWS_APP_SDK`, in
-  `LayoutPanelControl.OnFixChildrenDockLengths`): skip the star→pixel
-  conversion for any pane that has never been arranged. Startup now shows the
-  same balanced thirds as Uno.
+  so the `ActualWidth == 0` early-return is taken and panes stay star-sized.
+  Two-part resolution:
+  - Library safety net (`#if WINDOWS_APP_SDK`, in
+    `LayoutPanelControl.OnFixChildrenDockLengths`): skip the star→pixel
+    conversion for any pane that has never been arranged, so a star pane can
+    never be pinned at its minimum by a premature refresh.
+  - Sample now follows upstream AvalonDock convention: every official sample
+    (TestApp, VS2013Test `DockWidth="256"`, MVVMTestApp) sets an explicit pixel
+    `DockWidth`/`DockHeight` on anchorable panes rather than relying on the
+    star→pixel capture. The sample's code-behind layout sets
+    `DockWidth = 256 px` on both side panes; the document pane stays star and
+    absorbs window resizes — identical semantics to WPF AvalonDock.
+- Sample robustness: the DevFlow agent's fixed port (9223) may already be taken
+  by another DevFlow-enabled app; `_agent.Start()` now catches the
+  `SocketException` so the sample still runs (without the agent). Use the
+  `DEVFLOW_AGENT_PORT` environment variable to pick another port.
 - Fixed pane-header grip length: the VS2010/VS2013 themes drew the caption
   drag-grip dots as a `Path` with a fixed-length hard-coded geometry
   (~40/200 px) because WinUI has no tiling `DrawingBrush`. The dots now stop
