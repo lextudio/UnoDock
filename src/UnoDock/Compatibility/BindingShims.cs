@@ -12,12 +12,6 @@ namespace System.Windows.Data
 		public ValueConversionAttribute(Type sourceType, Type targetType) { }
 	}
 
-	// WPF's Binding.DoNothing sentinel — NullToDoNothingConverter returns it.
-	public static class Binding
-	{
-		public static readonly object DoNothing = new object();
-	}
-
 	// WPF's IMultiValueConverter — used by AnchorableContextMenuHideVisibilityConverter.
 	// WinUI has no multi-binding converter interface; the converter compiles and can be
 	// instantiated, but XAML multi-bindings are handled differently in WinUI (Phase 4+).
