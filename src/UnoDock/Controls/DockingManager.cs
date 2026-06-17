@@ -1618,10 +1618,38 @@ namespace AvalonDock
 			// Capture the host window now, while no floating/overlay windows exist yet.
 			_hostWindowHandle = AvalonDock.Hosting.MacOSWindowTabbing.GetMainAppWindow(System.Array.Empty<nint>());
 			#endif
+
+			// Floating panes live in their own top-level Windows that the OS does not close when the
+			// host (main) window closes. Mirror WPF AvalonDock, where floating windows are owned by
+			// the main window: subscribe to the host window's Closed event and tear them down, so the
+			// app's children don't linger after the main window is gone.
+			if (_hostWindow == null)
+			{
+				_hostWindow = Microsoft.UI.Xaml.Window.Current;
+				if (_hostWindow != null)
+					_hostWindow.Closed += OnHostWindowClosed;
+			}
+
 			if (Layout != null) RebuildLayoutControls(Layout);
 		}
 
-		private void OnUnloaded(object sender, RoutedEventArgs e) { }
+		private Microsoft.UI.Xaml.Window _hostWindow;
+
+		private void OnHostWindowClosed(object sender, Microsoft.UI.Xaml.WindowEventArgs e)
+			=> CloseAllFloatingWindows();
+
+		private void OnUnloaded(object sender, RoutedEventArgs e)
+		{
+			// Safety net for hosts where the visual tree unloads on shutdown: also close floating
+			// windows here (CloseAllFloatingWindows is idempotent — the list is cleared after).
+			CloseAllFloatingWindows();
+
+			if (_hostWindow != null)
+			{
+				_hostWindow.Closed -= OnHostWindowClosed;
+				_hostWindow = null;
+			}
+		}
 
 		protected override void OnApplyTemplate()
 		{
