@@ -531,28 +531,39 @@ namespace AvalonDock.Controls
 					break;
 
 				case DropAreaType.DocumentPaneGroup:
+				{
+					OverlayIndicatorVisibility groupVisibility = null;
 					if (area is OverlayDropArea groupArea &&
 						groupArea.AreaElement is ILayoutControl groupControl &&
 						groupControl.Model is LayoutDocumentPaneGroup group)
 					{
-						var visibility = OverlayIndicatorContextRules.ForDocumentPaneGroup(
+						groupVisibility = OverlayIndicatorContextRules.ForDocumentPaneGroup(
 							group,
 							floatingModel,
 							out var representativePane);
-						DbgLog($"  -> DocumentPaneGroup: group children={group.Children.Count} representativePane={(representativePane == null ? "<null>" : "ok")} {Fmt(visibility)}");
+						DbgLog($"  -> DocumentPaneGroup: group children={group.Children.Count} representativePane={(representativePane == null ? "<null>" : "ok")} {Fmt(groupVisibility)}");
 						if (representativePane == null)
 							return;
 
 						ApplyIndicatorVisibility(
-							visibility,
+							groupVisibility,
 							_docLeft, _docTop, _docRight, _docBottom, _docInto);
 					}
 					else
 					{
 						DbgLog("  -> DocumentPaneGroup: area did not resolve to LayoutDocumentPaneGroup");
 					}
-					ShowCompassGroup(_docGroup, _docCompass, area.DetectionRect, origin.Value);
+
+					// Only show the compass backdrop when at least one indicator is visible. An
+					// anchorable drag over the document group has no visible indicators (the group
+					// center is suppressed), so the diamond backdrop would otherwise draw empty —
+					// matching ILSpy, which shows only the outer manager edge arrows in this case.
+					if (groupVisibility != null && AnyIndicatorVisible(groupVisibility))
+						ShowCompassGroup(_docGroup, _docCompass, area.DetectionRect, origin.Value);
+					else if (_docGroup != null)
+						_docGroup.Visibility = Visibility.Collapsed;
 					break;
+				}
 
 				case DropAreaType.DocumentPane:
 					if (ResolveTargetPane(area) is not LayoutDocumentPane documentPane)
@@ -760,6 +771,14 @@ namespace AvalonDock.Controls
 		private static string Fmt(OverlayIndicatorVisibility v)
 			=> v == null ? "<null>"
 			   : $"Center={v.CenterVisible} Inner[L={v.InnerLeft},T={v.InnerTop},R={v.InnerRight},B={v.InnerBottom}] As[L={v.AsLeft},T={v.AsTop},R={v.AsRight},B={v.AsBottom}]";
+
+		// True when at least one indicator button would be shown. Used to avoid drawing an empty
+		// compass backdrop (e.g. an anchorable drag over a document-pane group, where every
+		// indicator is suppressed).
+		private static bool AnyIndicatorVisible(OverlayIndicatorVisibility v)
+			=> v != null && (v.CenterVisible
+				|| v.InnerLeft || v.InnerTop || v.InnerRight || v.InnerBottom
+				|| v.AsLeft || v.AsTop || v.AsRight || v.AsBottom);
 
 		private static void ApplyIndicatorVisibility(
 			OverlayIndicatorVisibility visibility,
