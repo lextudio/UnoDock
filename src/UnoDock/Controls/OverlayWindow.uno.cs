@@ -503,6 +503,7 @@ namespace AvalonDock.Controls
 		{
 			var origin = GetManagerOriginInRoot();
 			if (!origin.HasValue) return;
+			var floatingModel = _floatingWindow?.Model as LayoutFloatingWindow;
 
 			switch (area.Type)
 			{
@@ -511,16 +512,65 @@ namespace AvalonDock.Controls
 					break;
 
 				case DropAreaType.AnchorablePane:
+					if (ResolveTargetPane(area) is LayoutAnchorablePane anchorablePane)
+					{
+						ApplyIndicatorVisibility(
+							OverlayIndicatorVisibilityRules.ForAnchorablePane(
+								OverlayIndicatorContextRules.CanDropInto(anchorablePane, floatingModel)),
+							_anchLeft, _anchTop, _anchRight, _anchBottom, _anchInto);
+					}
 					ShowCompassGroup(_anchGroup, _anchCompass, area.DetectionRect, origin.Value);
 					break;
 
-				case DropAreaType.DocumentPane:
 				case DropAreaType.DocumentPaneGroup:
+					if (area is OverlayDropArea groupArea &&
+						groupArea.AreaElement is ILayoutControl groupControl &&
+						groupControl.Model is LayoutDocumentPaneGroup group)
+					{
+						var visibility = OverlayIndicatorContextRules.ForDocumentPaneGroup(
+							group,
+							floatingModel,
+							out var representativePane);
+						if (representativePane == null)
+							return;
+
+						ApplyIndicatorVisibility(
+							visibility,
+							_docLeft, _docTop, _docRight, _docBottom, _docInto);
+					}
+					ShowCompassGroup(_docGroup, _docCompass, area.DetectionRect, origin.Value);
+					break;
+
+				case DropAreaType.DocumentPane:
+					if (ResolveTargetPane(area) is not LayoutDocumentPane documentPane)
+						return;
+
+					var allowMixedOrientation = documentPane.Parent is LayoutDocumentPaneGroup parentGroup &&
+						parentGroup.Root?.Manager?.AllowMixedOrientation == true;
+					var rules = OverlayIndicatorContextRules.ForDocumentPane(
+						documentPane,
+						isAnchorableDrag: IsAnchorableDrag,
+						allowMixedOrientation: allowMixedOrientation,
+						floatingModel: floatingModel);
+
 					// Anchorable drag over doc pane → 9-zone full compass; document drag → 5-zone.
 					if (IsAnchorableDrag && _docFullGroup != null)
+					{
+						ApplyIndicatorVisibility(
+							rules,
+							_docFullLeft, _docFullTop, _docFullRight, _docFullBottom, _docFullInto);
+						ApplyAsDirectionalVisibility(
+							rules,
+							_docAsAnchLeft, _docAsAnchTop, _docAsAnchRight, _docAsAnchBottom);
 						ShowCompassGroup(_docFullGroup, _docFullCompass, area.DetectionRect, origin.Value, FullCompassBackdropWidth);
+					}
 					else
+					{
+						ApplyIndicatorVisibility(
+							rules,
+							_docLeft, _docTop, _docRight, _docBottom, _docInto);
 						ShowCompassGroup(_docGroup, _docCompass, area.DetectionRect, origin.Value);
+					}
 					break;
 			}
 		}
@@ -677,6 +727,40 @@ namespace AvalonDock.Controls
 				"M {0},{1} L {2},{1} L {2},{3} L {0},{3} Z",
 				rect.Left, rect.Top, rect.Right, rect.Bottom);
 
+		private static Visibility ToButtonVisibility(bool visible)
+			=> visible ? Visibility.Visible : Visibility.Collapsed;
+
+		private static void ApplyIndicatorVisibility(
+			OverlayIndicatorVisibility visibility,
+			Border left,
+			Border top,
+			Border right,
+			Border bottom,
+			Border center)
+		{
+			if (left != null) left.Visibility = ToButtonVisibility(visibility.InnerLeft);
+			if (top != null) top.Visibility = ToButtonVisibility(visibility.InnerTop);
+			if (right != null) right.Visibility = ToButtonVisibility(visibility.InnerRight);
+			if (bottom != null) bottom.Visibility = ToButtonVisibility(visibility.InnerBottom);
+			if (center != null) center.Visibility = ToButtonVisibility(visibility.CenterVisible);
+		}
+
+		private static void ApplyAsDirectionalVisibility(
+			OverlayIndicatorVisibility visibility,
+			Border left,
+			Border top,
+			Border right,
+			Border bottom)
+		{
+			if (left != null) left.Visibility = ToButtonVisibility(visibility.AsLeft);
+			if (top != null) top.Visibility = ToButtonVisibility(visibility.AsTop);
+			if (right != null) right.Visibility = ToButtonVisibility(visibility.AsRight);
+			if (bottom != null) bottom.Visibility = ToButtonVisibility(visibility.AsBottom);
+		}
+
+		private static bool IsVisibleButton(Border button)
+			=> button != null && button.Visibility == Visibility.Visible;
+
 		private static readonly Windows.UI.Color HoverFill  = Windows.UI.Color.FromArgb(0x60, 0x00, 0x7A, 0xCC);
 		private static readonly Windows.UI.Color GlyphFill  = Windows.UI.Color.FromArgb(0x30, 0x80, 0x80, 0x80);
 
@@ -805,8 +889,7 @@ namespace AvalonDock.Controls
 				case DropAreaType.AnchorablePane:
 				{
 					var targetPane = ResolveTargetPane(area);
-					if (targetPane is not ILayoutPositionableElement positionable ||
-						!OverlayDropRules.ShouldShowDropTargetInto(positionable, floatingModel))
+					if (targetPane is not ILayoutPositionableElement)
 						yield break;
 					foreach (var t in BuildPaneTargets(area, rect, targetPane, floatingModel)) yield return t;
 					break;
@@ -816,6 +899,7 @@ namespace AvalonDock.Controls
 					var repPane = ResolveRepresentativeDocumentPane(area);
 					if (repPane == null ||
 						!OverlayDropRules.ShouldShowDropTargetInto(repPane, floatingModel) ||
+						!IsVisibleButton(_docInto) ||
 						floatingModel is LayoutAnchorableFloatingWindow)
 						yield break;
 					yield return new UnoOverlayDropTarget(this, area, DropTargetType.DocumentPaneGroupDockInside, rect, rect, null);
@@ -959,30 +1043,42 @@ namespace AvalonDock.Controls
 			if (isAnchOverDoc)
 			{
 				// Inner 5: split/join the document pane (DockDocument*)
-				yield return Target(DropTargetType.DocumentPaneDockLeft,   _docFullLeft,   DropTargetType.DocumentPaneDockLeft);
-				yield return Target(DropTargetType.DocumentPaneDockTop,    _docFullTop,    DropTargetType.DocumentPaneDockTop);
-				yield return Target(DropTargetType.DocumentPaneDockRight,  _docFullRight,  DropTargetType.DocumentPaneDockRight);
-				yield return Target(DropTargetType.DocumentPaneDockBottom, _docFullBottom, DropTargetType.DocumentPaneDockBottom);
-				if (canInside)
+				if (IsVisibleButton(_docFullLeft))
+					yield return Target(DropTargetType.DocumentPaneDockLeft, _docFullLeft, DropTargetType.DocumentPaneDockLeft);
+				if (IsVisibleButton(_docFullTop))
+					yield return Target(DropTargetType.DocumentPaneDockTop, _docFullTop, DropTargetType.DocumentPaneDockTop);
+				if (IsVisibleButton(_docFullRight))
+					yield return Target(DropTargetType.DocumentPaneDockRight, _docFullRight, DropTargetType.DocumentPaneDockRight);
+				if (IsVisibleButton(_docFullBottom))
+					yield return Target(DropTargetType.DocumentPaneDockBottom, _docFullBottom, DropTargetType.DocumentPaneDockBottom);
+				if (canInside && IsVisibleButton(_docFullInto))
 					yield return Target(DropTargetType.DocumentPaneDockInside, _docFullInto, DropTargetType.DocumentPaneDockInside);
 
 				// Outer 4 "as anchorable pane": align with manager outer-edge behavior
 				// for both action and preview geometry.
-				yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableLeft,   _docAsAnchLeft,   DropTargetType.DockingManagerDockLeft);
-				yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableTop,    _docAsAnchTop,    DropTargetType.DockingManagerDockTop);
-				yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableRight,  _docAsAnchRight,  DropTargetType.DockingManagerDockRight);
-				yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableBottom, _docAsAnchBottom, DropTargetType.DockingManagerDockBottom);
+				if (IsVisibleButton(_docAsAnchLeft))
+					yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableLeft, _docAsAnchLeft, DropTargetType.DockingManagerDockLeft);
+				if (IsVisibleButton(_docAsAnchTop))
+					yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableTop, _docAsAnchTop, DropTargetType.DockingManagerDockTop);
+				if (IsVisibleButton(_docAsAnchRight))
+					yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableRight, _docAsAnchRight, DropTargetType.DockingManagerDockRight);
+				if (IsVisibleButton(_docAsAnchBottom))
+					yield return TargetAsManagerOuter(DropTargetType.DocumentPaneDockAsAnchorableBottom, _docAsAnchBottom, DropTargetType.DockingManagerDockBottom);
 				yield break;
 			}
 
 			// Standard 5-zone compass (document drag over doc pane, or anchorable pane)
 			if (isAnch)
 			{
-				yield return Target(DropTargetType.AnchorablePaneDockLeft,   _anchLeft,   DropTargetType.AnchorablePaneDockLeft);
-				yield return Target(DropTargetType.AnchorablePaneDockTop,    _anchTop,    DropTargetType.AnchorablePaneDockTop);
-				yield return Target(DropTargetType.AnchorablePaneDockRight,  _anchRight,  DropTargetType.AnchorablePaneDockRight);
-				yield return Target(DropTargetType.AnchorablePaneDockBottom, _anchBottom, DropTargetType.AnchorablePaneDockBottom);
-				if (canInside)
+				if (IsVisibleButton(_anchLeft))
+					yield return Target(DropTargetType.AnchorablePaneDockLeft, _anchLeft, DropTargetType.AnchorablePaneDockLeft);
+				if (IsVisibleButton(_anchTop))
+					yield return Target(DropTargetType.AnchorablePaneDockTop, _anchTop, DropTargetType.AnchorablePaneDockTop);
+				if (IsVisibleButton(_anchRight))
+					yield return Target(DropTargetType.AnchorablePaneDockRight, _anchRight, DropTargetType.AnchorablePaneDockRight);
+				if (IsVisibleButton(_anchBottom))
+					yield return Target(DropTargetType.AnchorablePaneDockBottom, _anchBottom, DropTargetType.AnchorablePaneDockBottom);
+				if (canInside && IsVisibleButton(_anchInto))
 				{
 					yield return Target(DropTargetType.AnchorablePaneDockInside, _anchInto, DropTargetType.AnchorablePaneDockInside);
 					foreach (var t in BuildPaneTabTargets(area, rect, targetPane)) yield return t;
@@ -990,11 +1086,15 @@ namespace AvalonDock.Controls
 			}
 			else
 			{
-				yield return Target(DropTargetType.DocumentPaneDockLeft,   _docLeft,   DropTargetType.DocumentPaneDockLeft);
-				yield return Target(DropTargetType.DocumentPaneDockTop,    _docTop,    DropTargetType.DocumentPaneDockTop);
-				yield return Target(DropTargetType.DocumentPaneDockRight,  _docRight,  DropTargetType.DocumentPaneDockRight);
-				yield return Target(DropTargetType.DocumentPaneDockBottom, _docBottom, DropTargetType.DocumentPaneDockBottom);
-				if (canInside)
+				if (IsVisibleButton(_docLeft))
+					yield return Target(DropTargetType.DocumentPaneDockLeft, _docLeft, DropTargetType.DocumentPaneDockLeft);
+				if (IsVisibleButton(_docTop))
+					yield return Target(DropTargetType.DocumentPaneDockTop, _docTop, DropTargetType.DocumentPaneDockTop);
+				if (IsVisibleButton(_docRight))
+					yield return Target(DropTargetType.DocumentPaneDockRight, _docRight, DropTargetType.DocumentPaneDockRight);
+				if (IsVisibleButton(_docBottom))
+					yield return Target(DropTargetType.DocumentPaneDockBottom, _docBottom, DropTargetType.DocumentPaneDockBottom);
+				if (canInside && IsVisibleButton(_docInto))
 				{
 					yield return Target(DropTargetType.DocumentPaneDockInside, _docInto, DropTargetType.DocumentPaneDockInside);
 					foreach (var t in BuildPaneTabTargets(area, rect, targetPane)) yield return t;

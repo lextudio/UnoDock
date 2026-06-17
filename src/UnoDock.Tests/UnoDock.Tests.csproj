@@ -24,6 +24,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UnoDock\UnoDock.csproj" />
+    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Core\AvalonDock.Core.csproj" />
+    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Serializer.Xml\AvalonDock.Serializer.Xml.csproj" />
   </ItemGroup>
 
   <!-- Pure-model upstream test files (no DockingManager/TestHost/FlaUI/WPF window). -->

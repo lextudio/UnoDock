@@ -5,6 +5,7 @@ using NUnit.Framework;
 using AvalonDock;
 using AvalonDock.Controls;
 using AvalonDock.Layout;
+using Microsoft.UI.Xaml;
 
 namespace AvalonDockTest
 {
@@ -116,7 +117,7 @@ namespace AvalonDockTest
 			var floatingModelForPaneArea = CreateAnchorableFloatingWindowModel("FloatingTool");
 
 			var paneAreaTarget = managerFromPaneArea.Layout.Descendents().OfType<LayoutDocumentPane>().First();
-			var areaControl = new LayoutDocumentPaneControl(paneAreaTarget, isVirtualizing: false);
+			var areaControl = new TestLayoutControl(paneAreaTarget);
 			var dropArea = new OverlayDropArea(areaControl, DropAreaType.DocumentPane);
 
 			var appliedFromPaneArea = (bool)applyDrop.Invoke(
@@ -288,6 +289,16 @@ namespace AvalonDockTest
 			public DropAreaType Type { get; }
 
 			public Windows.Foundation.Point TransformToDeviceDPI(Windows.Foundation.Point dragPosition) => dragPosition;
+		}
+
+		private sealed class TestLayoutControl : FrameworkElement, ILayoutControl
+		{
+			public TestLayoutControl(ILayoutElement model)
+			{
+				Model = model;
+			}
+
+			public ILayoutElement Model { get; }
 		}
 
 		private sealed class RecordingDropTarget : IDropTarget
