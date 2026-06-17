@@ -505,19 +505,27 @@ namespace AvalonDock.Controls
 			if (!origin.HasValue) return;
 			var floatingModel = _floatingWindow?.Model as LayoutFloatingWindow;
 
+			DbgLog($"ShowGroupForArea: area.Type={area.Type} IsAnchorableDrag={IsAnchorableDrag} " +
+				$"floatingModel={_floatingWindow?.Model?.GetType().Name ?? "<null>"} (asLayoutFloatingWindow={(floatingModel == null ? "null" : floatingModel.GetType().Name)})");
+
 			switch (area.Type)
 			{
 				case DropAreaType.DockingManager:
+					DbgLog("  -> DockingManager: showing _mgrGroup (edge arrows only)");
 					if (_mgrGroup != null) _mgrGroup.Visibility = Visibility.Visible;
 					break;
 
 				case DropAreaType.AnchorablePane:
 					if (ResolveTargetPane(area) is LayoutAnchorablePane anchorablePane)
 					{
-						ApplyIndicatorVisibility(
-							OverlayIndicatorVisibilityRules.ForAnchorablePane(
-								OverlayIndicatorContextRules.CanDropInto(anchorablePane, floatingModel)),
-							_anchLeft, _anchTop, _anchRight, _anchBottom, _anchInto);
+						var canInto = OverlayIndicatorContextRules.CanDropInto(anchorablePane, floatingModel);
+						var anchVis = OverlayIndicatorVisibilityRules.ForAnchorablePane(canInto);
+						DbgLog($"  -> AnchorablePane: pane={anchorablePane.GetType().Name} canDropInto={canInto} {Fmt(anchVis)}");
+						ApplyIndicatorVisibility(anchVis, _anchLeft, _anchTop, _anchRight, _anchBottom, _anchInto);
+					}
+					else
+					{
+						DbgLog($"  -> AnchorablePane: ResolveTargetPane returned non-anchorable ({ResolveTargetPane(area)?.GetType().Name ?? "<null>"})");
 					}
 					ShowCompassGroup(_anchGroup, _anchCompass, area.DetectionRect, origin.Value);
 					break;
@@ -531,6 +539,7 @@ namespace AvalonDock.Controls
 							group,
 							floatingModel,
 							out var representativePane);
+						DbgLog($"  -> DocumentPaneGroup: group children={group.Children.Count} representativePane={(representativePane == null ? "<null>" : "ok")} {Fmt(visibility)}");
 						if (representativePane == null)
 							return;
 
@@ -538,12 +547,19 @@ namespace AvalonDock.Controls
 							visibility,
 							_docLeft, _docTop, _docRight, _docBottom, _docInto);
 					}
+					else
+					{
+						DbgLog("  -> DocumentPaneGroup: area did not resolve to LayoutDocumentPaneGroup");
+					}
 					ShowCompassGroup(_docGroup, _docCompass, area.DetectionRect, origin.Value);
 					break;
 
 				case DropAreaType.DocumentPane:
 					if (ResolveTargetPane(area) is not LayoutDocumentPane documentPane)
+					{
+						DbgLog($"  -> DocumentPane: ResolveTargetPane returned non-document ({ResolveTargetPane(area)?.GetType().Name ?? "<null>"})");
 						return;
+					}
 
 					var allowMixedOrientation = documentPane.Parent is LayoutDocumentPaneGroup parentGroup &&
 						parentGroup.Root?.Manager?.AllowMixedOrientation == true;
@@ -556,6 +572,7 @@ namespace AvalonDock.Controls
 					// Anchorable drag over doc pane → 9-zone full compass; document drag → 5-zone.
 					if (IsAnchorableDrag && _docFullGroup != null)
 					{
+						DbgLog($"  -> DocumentPane [FULL/anchorable]: {Fmt(rules)} (center should be hidden for anchorable drag)");
 						ApplyIndicatorVisibility(
 							rules,
 							_docFullLeft, _docFullTop, _docFullRight, _docFullBottom, _docFullInto);
@@ -566,6 +583,7 @@ namespace AvalonDock.Controls
 					}
 					else
 					{
+						DbgLog($"  -> DocumentPane [5-zone]: IsAnchorableDrag={IsAnchorableDrag} _docFullGroup={(_docFullGroup == null ? "null" : "ok")} {Fmt(rules)}");
 						ApplyIndicatorVisibility(
 							rules,
 							_docLeft, _docTop, _docRight, _docBottom, _docInto);
@@ -729,6 +747,19 @@ namespace AvalonDock.Controls
 
 		private static Visibility ToButtonVisibility(bool visible)
 			=> visible ? Visibility.Visible : Visibility.Collapsed;
+
+		// TEMP diagnostics: trace which drop-area path is hit and the computed indicator visibility,
+		// so we can see why the center compass shows when docking the Roma search window.
+		private static readonly string _overlayLog =
+			System.IO.Path.Combine(System.IO.Path.GetTempPath(), "unodock-overlay.log");
+		private static void DbgLog(string msg)
+		{
+			try { System.IO.File.AppendAllText(_overlayLog, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\n"); } catch { }
+		}
+
+		private static string Fmt(OverlayIndicatorVisibility v)
+			=> v == null ? "<null>"
+			   : $"Center={v.CenterVisible} Inner[L={v.InnerLeft},T={v.InnerTop},R={v.InnerRight},B={v.InnerBottom}] As[L={v.AsLeft},T={v.AsTop},R={v.AsRight},B={v.AsBottom}]";
 
 		private static void ApplyIndicatorVisibility(
 			OverlayIndicatorVisibility visibility,
