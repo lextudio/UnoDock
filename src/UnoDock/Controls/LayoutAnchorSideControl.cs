@@ -63,15 +63,25 @@ namespace AvalonDock.Controls
 			_model = model ?? throw new ArgumentNullException(nameof(model));
 			DefaultStyleKey = typeof(LayoutAnchorSideControl);
 			_model.Children.CollectionChanged += OnGroupsChanged;
-			Loaded += (_, _) => RebuildGroups();
+			Loaded += (_, _) =>
+			{
+				ApplyThemeResources();
+				RebuildGroups();
+			};
 		}
 
 		protected override void OnApplyTemplate()
 		{
 			base.OnApplyTemplate();
 			_tabPanel = GetTemplateChild("PART_TabPanel") as StackPanel;
+			ApplyThemeResources();
 			UpdateTabPanelOrientation();
 			RebuildGroups();
+		}
+
+		private void ApplyThemeResources()
+		{
+			Background = ResolveBrush(KeyTabBarBackground, FallbackTabBarBackground);
 		}
 
 		private void OnGroupsChanged(object sender, NotifyCollectionChangedEventArgs e)

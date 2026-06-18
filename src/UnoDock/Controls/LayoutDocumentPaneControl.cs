@@ -99,6 +99,7 @@ namespace AvalonDock.Controls
 			_accentLine = GetTemplateChild("BD") as Border;
 			_overflowButton = GetTemplateChild("PART_OverflowButton") as Button;
 			_overflowGlyph = GetTemplateChild("PART_OverflowGlyph") as Microsoft.UI.Xaml.Shapes.Path;
+			ApplyThemeResources();
 			if (_overflowButton != null)
 			{
 				_overflowButton.Click += OnOverflowButtonClick;
@@ -130,6 +131,7 @@ namespace AvalonDock.Controls
 			// Defer initial highlight so the ItemsControl visual tree is fully populated.
 			Loaded += (_, _) =>
 			{
+				ApplyThemeResources();
 				EnsureSelectedContent();
 				SyncSelection();
 				UpdateTabHighlights(_model.SelectedContent);
@@ -472,6 +474,8 @@ namespace AvalonDock.Controls
 		}
 
 		private const string KeyTabBarBackground = "UnoDock_VS2013_TabBarBackground";
+		private static readonly SolidColorBrush FallbackTabBarBackground =
+			new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x2D, 0x2D, 0x30));
 		private const string KeyDocSelActiveBg = "UnoDock_VS2013_DocumentWellTabSelectedActiveBackground";
 		private const string KeyDocSelActiveText = "UnoDock_VS2013_DocumentWellTabSelectedActiveText";
 		private const string KeyDocSelInactiveBg = "UnoDock_VS2013_DocumentWellTabSelectedInactiveBackground";
@@ -502,6 +506,23 @@ namespace AvalonDock.Controls
 			new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x00, 0x7A, 0xCC));
 		private static readonly SolidColorBrush FallbackCloseHoverGlyph =
 			new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xD0, 0xE6, 0xF5));
+
+		private void ApplyThemeResources()
+		{
+			var tabBarBackground = ResolveBrush(KeyTabBarBackground, FallbackTabBarBackground);
+			switch (_tabStripHost)
+			{
+				case Border border:
+					border.Background = tabBarBackground;
+					break;
+				case Panel panel:
+					panel.Background = tabBarBackground;
+					break;
+				case Control control:
+					control.Background = tabBarBackground;
+					break;
+			}
+		}
 
 		private Brush ResolveBrush(string key, Brush fallback)
 		{
