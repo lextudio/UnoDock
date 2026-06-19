@@ -203,13 +203,22 @@ sample *launch* differs. Confirmed live locally on Windows/Skia **and WinUI 3**
 (WinUI agent: `framework: uno, multiWindow: true`, identical `dock-query-layout`);
 macOS/Skia is DevFlow's original platform.
 
-**In CI:** three DevFlow jobs in `.github/workflows/ci.yml` —
-`windows-devflow` (`dotnet run`), `macos-devflow` (same, `runs-on: macos-latest`),
-and `winui-devflow` (msbuild build → launch the built `.exe`). Each builds/launches
-the sample, polls the agent until ready, runs the `Integration` category, and tears
-the process down. (GUI-on-runner is the one unproven gate — identical across
-platforms; every job fails loudly if the agent never binds, so one CI run tells us
-which runners can host the live app. Round-trips themselves verified locally.)
+**In CI:** two per-OS jobs in `.github/workflows/ci.yml`, each doing build +
+headless tests + live DevFlow in one job:
+- **`windows`** — headless Skia (`net10.0-desktop`) + WinUI 3 build (VS MSBuild) +
+  live DevFlow against the built WinUI `.exe`.
+- **`macos`** — Skia build + headless + live DevFlow against the `dotnet run` Skia
+  sample.
+
+**CI run outcome:** the **macOS runner hosts the live GUI app** — its live DevFlow
+step passes and is **strict** (real automated actuation coverage). The **Windows
+runner runs in a non-interactive session**, so the Uno app can't create its window
+and the agent never binds; the Windows live step is therefore **non-blocking
+(`continue-on-error`) with stdout/stderr diagnostics** — it auto-activates if a
+future runner image is desktop-capable. Windows live actuation is verified locally
+instead (Skia + WinUI both confirmed). Windows build + headless + WinUI build
+remain strict. Net: live DevFlow coverage runs in CI on macOS; both renderers keep
+headless coverage; both platforms keep build coverage.
 
 Two bugs were caught *only* by running live (not by static reasoning): the DevFlow
 response envelope field is `returnValue` (client parser fixed), and
