@@ -451,15 +451,10 @@ namespace AvalonDock
 		private static (double X, double Y) NativeCursorScreen()
 			=> Controls.PointerProbe.Shared.GetCursorScreen();
 
-		/// <summary>Top-left of a floating window in native screen coordinates.</summary>
+		/// <summary>Top-left of a floating window in native screen coordinates.
+		/// Platform branch lives in the INativeWindowOps seam (NativeWindowOps.cs).</summary>
 		private static (double X, double Y) NativeWindowTopLeft(LayoutFloatingWindowControl fwc)
-		{
-#if !WINDOWS
-			if (OperatingSystem.IsMacOS() && fwc.NsWindowHandle != 0)
-				return AvalonDock.Hosting.MacOSWindowTabbing.GetWindowPosition(fwc.NsWindowHandle);
-#endif
-			return fwc.GetWindowPosition();
-		}
+			=> Controls.NativeWindowOps.Shared.GetWindowTopLeft(fwc);
 
 		// Refresh the control's Left/Top from the live native window position (the OS
 		// moved it during the drag, so the pre-drag values are stale), then persist the
@@ -480,19 +475,10 @@ namespace AvalonDock
 			catch { /* geometry persistence is best-effort; never break drag teardown */ }
 		}
 
-		/// <summary>Bring a floating window above the main window (cursor left the manager).</summary>
+		/// <summary>Bring a floating window above the main window (cursor left the manager).
+		/// Platform branch lives in the INativeWindowOps seam (NativeWindowOps.cs).</summary>
 		private static void BringFloatingToFront(LayoutFloatingWindowControl fwc)
-		{
-#if !WINDOWS
-			if (OperatingSystem.IsMacOS())
-			{
-				if (fwc.NsWindowHandle != 0)
-					AvalonDock.Hosting.MacOSWindowTabbing.OrderWindowFront(fwc.NsWindowHandle);
-				return;
-			}
-#endif
-			fwc.BringToFrontWindows();
-		}
+			=> Controls.NativeWindowOps.Shared.BringToFront(fwc);
 
 		/// <summary>
 		/// Session 26 native drag entry point. Hands off to the OS move loop and drives

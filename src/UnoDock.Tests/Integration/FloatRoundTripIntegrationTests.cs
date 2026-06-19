@@ -108,5 +108,43 @@ namespace AvalonDockTest.Integration
 			Assert.That(after.DocumentPanes.SelectMany(p => p.Tabs), Does.Contain(floatedId),
 				"dropped document should be docked back into a document pane");
 		}
+
+		[Test]
+		public async Task FloatDocument_ThenDropLeft_SplitsIntoTwoDocumentPanes()
+		{
+			var before = DockLayoutSnapshot.Parse(await _client.InvokeAsync("dock-query-layout"));
+			if (before.DocumentPanes.SelectMany(p => p.Tabs).Count() < 2)
+				Assert.Ignore("Need at least two documents to demonstrate a split.");
+			var paneCountBefore = before.DocumentPanes.Count;
+
+			await _client.InvokeAsync("dock-float-active");
+			await _client.InvokeAsync("dock-simulate-drop", "Left");
+
+			var after = DockLayoutSnapshot.Parse(await _client.InvokeAsync("dock-query-layout"));
+			Assert.That(after.FloatingWindows, Is.Empty, "the floated document should have re-docked");
+			Assert.That(after.DocumentPanes.Count, Is.GreaterThan(paneCountBefore),
+				"a left drop should split the documents into separate panes");
+		}
+
+		[Test]
+		public async Task ToggleAutoHide_MovesToolOutOfDockedPane_AndBack()
+		{
+			var before = DockLayoutSnapshot.Parse(await _client.InvokeAsync("dock-query-layout"));
+			var toolId = before.AnchorablePanes.SelectMany(p => p.Tabs).FirstOrDefault();
+			if (toolId == null)
+				Assert.Ignore("Sample has no docked anchorable to auto-hide.");
+
+			// Auto-hide → tool moves to a side panel, leaving the docked anchorable panes.
+			await _client.InvokeAsync("dock-toggle-autohide", toolId);
+			var hidden = DockLayoutSnapshot.Parse(await _client.InvokeAsync("dock-query-layout"));
+			Assert.That(hidden.AnchorablePanes.SelectMany(p => p.Tabs), Does.Not.Contain(toolId),
+				"auto-hidden tool should leave the docked anchorable panes");
+
+			// Toggle back → returns to a docked anchorable pane.
+			await _client.InvokeAsync("dock-toggle-autohide", toolId);
+			var restored = DockLayoutSnapshot.Parse(await _client.InvokeAsync("dock-query-layout"));
+			Assert.That(restored.AnchorablePanes.SelectMany(p => p.Tabs), Does.Contain(toolId),
+				"toggling auto-hide off should re-dock the tool");
+		}
 	}
 }

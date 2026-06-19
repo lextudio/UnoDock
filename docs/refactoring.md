@@ -188,10 +188,28 @@ passed, 3 integration skipped / green-when-live):
 - `FloatDocument_ThenDropCenter_DocksBackIntoADocumentPane` — full float→drop
   loop: float the active document, then `dock-simulate-drop Center` re-docks it.
 
+Now **five** live round-trips (all green against a running sample, all skip
+cleanly headless): query, float-anchorable, float-doc→drop-center,
+float-doc→drop-left (split), and auto-hide toggle round-trip.
+
 Tests are **order-independent**: `SetUp` re-docks any windows a prior test left
 floating, avoiding the cumulative-state trap that makes integration suites flaky.
 These are the live counterparts of `FloatContentTests`/`DropToLayoutMutationTests`
 and the foundation for Challenge 3 / plan Step 5.
+
+**DevFlow is renderer/platform-agnostic** (an embedded HTTP agent), so the *same*
+`net10.0-desktop` integration tests drive it across all three matrices — only the
+sample *launch* differs. Confirmed live locally on Windows/Skia **and WinUI 3**
+(WinUI agent: `framework: uno, multiWindow: true`, identical `dock-query-layout`);
+macOS/Skia is DevFlow's original platform.
+
+**In CI:** three DevFlow jobs in `.github/workflows/ci.yml` —
+`windows-devflow` (`dotnet run`), `macos-devflow` (same, `runs-on: macos-latest`),
+and `winui-devflow` (msbuild build → launch the built `.exe`). Each builds/launches
+the sample, polls the agent until ready, runs the `Integration` category, and tears
+the process down. (GUI-on-runner is the one unproven gate — identical across
+platforms; every job fails loudly if the agent never binds, so one CI run tells us
+which runners can host the live app. Round-trips themselves verified locally.)
 
 Two bugs were caught *only* by running live (not by static reasoning): the DevFlow
 response envelope field is `returnValue` (client parser fixed), and
@@ -266,10 +284,13 @@ implementation, selected by a factory; **zero `#if` in `DockingManager`**:
       place; impls delegate to the existing native statics (no new P/Invoke).
       `DockingManager.NativeCursorScreen` routes through it; `FakePointerProbe` +
       `PointerProbeTests` for the seam. 134 headless green, 3 live round-trips green.)*
-- [ ] `INativeWindowOps` (window move/order/chrome) — the larger remaining seam;
-      ~24 `OperatingSystem.Is*` branches still live in `DockingManager`'s overlay/
-      window plumbing (deep macOS-vs-Windows native code, untestable on a Windows
-      box — deferred for incremental extraction, not a single risky pass).
+- [~] `INativeWindowOps` — first slice done. *(`Controls/NativeWindowOps.cs`:
+      `INativeWindowOps` (GetWindowTopLeft + BringToFront) with a factory confining
+      the macOS `#if`; `DockingManager.NativeWindowTopLeft`/`BringFloatingToFront`
+      now one-line delegations. DockingManager `OperatingSystem.Is*` count 26 → 23.
+      Verified: 145 headless green, WinUI build green, 5 live round-trips green.)*
+      Remaining ~23 branches (layered-overlay, tracker selection, chrome) are deeper
+      macOS-vs-Windows code; extract incrementally as each is touched.
 - [x] CI: three build+test legs. *(Done: `.github/workflows/ci.yml` — Windows/Skia
       headless tests, Windows/WinUI build via **VS MSBuild** (`microsoft/setup-msbuild`;
       `dotnet msbuild` also trips UNOB0008 — verified locally, only VS MSBuild.exe
