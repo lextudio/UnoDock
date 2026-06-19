@@ -39,6 +39,8 @@ namespace AvalonDock.Controls
 		private Window _window;
 		private ContentControl _host;
 		private Border _titleBar;
+		private TextBlock _titleText;
+		private Path _titleGrip;
 		private Path _windowStateGlyph;
 		private nint _nsWindow;
 		private System.IntPtr _willMoveObserver; // NSNotificationCenter observer token
@@ -46,6 +48,9 @@ namespace AvalonDock.Controls
 
 		/// <summary>Fired when the user starts dragging this floating window's title bar.</summary>
 		public Action OnTitleBarDragStarted;
+
+		/// <summary>Fired when child chrome requests closing this floating window.</summary>
+		public Action OnChildWindowCloseRequested;
 
 		/// <summary>The NSWindow handle set by DisableLastWindowTabbing().
 		/// Valid only on macOS after Show(); 0 on Windows or before Show().</summary>
@@ -254,14 +259,29 @@ namespace AvalonDock.Controls
 
 		private UIElement CreateWindowsWindowContent()
 		{
+			if (!ShowWindowsTitleBar)
+			{
+				AddManagerThemeResources(_host);
+				return new Border
+				{
+					Background = Brush(0xFF, 0xEE, 0xEE, 0xF2),
+					BorderBrush = Brush(0xFF, 0xCC, 0xCE, 0xDB),
+					BorderThickness = new Thickness(1),
+					Child = _host,
+				};
+			}
+
 			var titleText = new TextBlock
 			{
 				Text = GetWindowTitle(),
-				Foreground = Brush(0xFF, 0x44, 0x44, 0x44),
 				FontSize = 12,
+				FontWeight = UseToolWindowTitleChrome ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
 				VerticalAlignment = VerticalAlignment.Center,
-				Margin = new Thickness(8, 0, 0, 0),
+				Margin = new Thickness(4, 0, 6, 0),
 			};
+			if (!UseToolWindowTitleChrome)
+				titleText.Foreground = Brush(0xFF, 0x44, 0x44, 0x44);
+			_titleText = titleText;
 
 			var buttonPanel = new StackPanel
 			{
@@ -269,24 +289,43 @@ namespace AvalonDock.Controls
 				HorizontalAlignment = HorizontalAlignment.Right,
 				VerticalAlignment = VerticalAlignment.Top,
 			};
-			_windowStateGlyph = CreateCaptionGlyph(MaximizeGlyph, 9, 9);
+			_windowStateGlyph = CreateCaptionGlyph(MaximizeGlyph, 8, 8);
+			if (UseToolWindowTitleChrome)
+				buttonPanel.Children.Add(CreateCaptionButton(CreateCaptionGlyph(MenuGlyph, 7, 4), OnFloatingWindowMenuClick));
 			buttonPanel.Children.Add(CreateCaptionButton(_windowStateGlyph, ToggleMaximizeRestore));
-			buttonPanel.Children.Add(CreateCaptionButton(CreateCaptionGlyph(CloseGlyph, 10, 10), () => _window?.Close()));
+			buttonPanel.Children.Add(CreateCaptionButton(CreateCaptionGlyph(CloseGlyph, 8, 8), RequestCloseFromChrome));
 
 			var titleGrid = new Grid();
+			titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 			titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 			titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 			Grid.SetColumn(titleText, 0);
-			Grid.SetColumn(buttonPanel, 1);
+			var dragHandle = new Path
+			{
+				Height = 5,
+				Margin = new Thickness(4, 0, 4, 0),
+				HorizontalAlignment = HorizontalAlignment.Stretch,
+				VerticalAlignment = VerticalAlignment.Center,
+			};
+			_titleGrip = dragHandle;
+			if (UseToolWindowTitleChrome)
+				dragHandle.SizeChanged += OnTitleGripSizeChanged;
+			else
+			{
+				dragHandle.Data = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 2, 1, 1) };
+				dragHandle.Fill = Brush(0xFF, 0xA8, 0xA8, 0xA8);
+				dragHandle.Stretch = Stretch.Fill;
+				dragHandle.Opacity = 0.75;
+			}
+			Grid.SetColumn(dragHandle, 1);
+			Grid.SetColumn(buttonPanel, 2);
 			titleGrid.Children.Add(titleText);
+			titleGrid.Children.Add(dragHandle);
 			titleGrid.Children.Add(buttonPanel);
 
 			_titleBar = new Border
 			{
-				Height = 32,
-				Background = Brush(0xFF, 0xEE, 0xEE, 0xF2),
-				BorderBrush = Brush(0xFF, 0xCC, 0xCE, 0xDB),
-				BorderThickness = new Thickness(1, 1, 1, 0),
+				Height = 21,
 				Child = titleGrid,
 			};
 			_titleBar.PointerPressed += OnTitleBarPointerPressed;
@@ -296,17 +335,20 @@ namespace AvalonDock.Controls
 				Background = Brush(0xFF, 0xEE, 0xEE, 0xF2),
 			};
 			AddManagerThemeResources(root);
-			root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
+			root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(21) });
 			root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 			Grid.SetRow(_titleBar, 0);
 			var contentFrame = new Border
 			{
-				Margin = new Thickness(6),
 				Child = _host,
 			};
 			Grid.SetRow(contentFrame, 1);
 			root.Children.Add(_titleBar);
 			root.Children.Add(contentFrame);
+			if (UseToolWindowTitleChrome)
+				UpdateWindowsTitleBarChrome();
+			else
+				_titleBar.Background = Brush(0xFF, 0xEE, 0xEE, 0xF2);
 
 			return new Border
 			{
@@ -331,8 +373,8 @@ namespace AvalonDock.Controls
 		{
 			var button = new Button
 			{
-				Width = 34,
-				Height = 26,
+				Width = 20,
+				Height = 20,
 				Padding = new Thickness(0),
 				Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
 				BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
@@ -341,6 +383,20 @@ namespace AvalonDock.Controls
 			};
 			button.Click += (_, _) => action?.Invoke();
 			return button;
+		}
+
+		private void RequestCloseFromChrome()
+		{
+			if (OnChildWindowCloseRequested != null)
+				OnChildWindowCloseRequested.Invoke();
+			else
+				_window?.Close();
+		}
+
+		private void OnFloatingWindowMenuClick()
+		{
+			// Placeholder for AvalonDock's floating-window context menu. The button is part
+			// of the chrome contract even when no app-supplied menu is available yet.
 		}
 
 		private void ToggleMaximizeRestore()
@@ -410,6 +466,9 @@ namespace AvalonDock.Controls
 		private const string CloseGlyph =
 			"M 0,2.0345e-005L 7.62109,2.0345e-005L 19.2627,12.0551L 30.9043,2.0345e-005L 38.5241,2.0345e-005L 23.0726,16.0003L 38.5234,32L 30.9023,32L 19.2621,19.9462L 7.62177,32L 0.00195313,32L 15.4521,16.001L 0,2.0345e-005 Z";
 
+		private const string MenuGlyph =
+			"M 0,0 L 7,0 L 3.5,4 Z";
+
 		private void AddManagerThemeResources(FrameworkElement element)
 		{
 			try
@@ -428,6 +487,80 @@ namespace AvalonDock.Controls
 						: new ResourceDictionary { Source = theme.GetResourceUri() });
 			}
 			catch { }
+		}
+
+		private void UpdateWindowsTitleBarChrome()
+		{
+			var isActive = GetSelectedContent()?.IsActive == true;
+			var captionBg = ResolveBrush(
+				isActive ? "UnoDock_VS2013_ToolWindowCaptionActiveBackground" : "UnoDock_VS2013_ToolWindowCaptionInactiveBackground",
+				Brush(0xFF, 0xEE, 0xEE, 0xF2));
+			var captionText = ResolveBrush(
+				isActive ? "UnoDock_VS2013_ToolWindowCaptionActiveText" : "UnoDock_VS2013_ToolWindowCaptionInactiveText",
+				Brush(0xFF, 0x44, 0x44, 0x44));
+			var grip = ResolveBrush(
+				isActive ? "UnoDock_VS2013_ToolWindowCaptionActiveGrip" : "UnoDock_VS2013_ToolWindowCaptionInactiveGrip",
+				Brush(0xFF, 0xA8, 0xA8, 0xA8));
+			var glyph = ResolveBrush(
+				isActive ? "UnoDock_VS2013_ToolWindowCaptionButtonActiveGlyph" : "UnoDock_VS2013_ToolWindowCaptionButtonInactiveGlyph",
+				captionText);
+
+			if (_titleBar != null)
+				_titleBar.Background = captionBg;
+			if (_titleText != null)
+				_titleText.Foreground = captionText;
+			if (_titleGrip != null)
+				_titleGrip.Fill = grip;
+			SetCaptionButtonGlyphBrush(_titleBar, glyph);
+		}
+
+		private static void SetCaptionButtonGlyphBrush(DependencyObject node, Brush brush)
+		{
+			if (node == null)
+				return;
+			if (node is Path path)
+				path.Fill = brush;
+			if (node is TextBlock text)
+				text.Foreground = brush;
+
+			var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(node);
+			for (var index = 0; index < count; index++)
+				SetCaptionButtonGlyphBrush(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(node, index), brush);
+		}
+
+		private Brush ResolveBrush(string key, Brush fallback)
+		{
+			DependencyObject current = _titleBar != null ? _titleBar : _host;
+			while (current != null)
+			{
+				if (current is FrameworkElement fe
+					&& fe.Resources != null
+					&& fe.Resources.TryGetValue(key, out var scoped)
+					&& scoped is Brush scopedBrush)
+					return scopedBrush;
+
+				current = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(current);
+			}
+
+			var appResources = Application.Current?.Resources;
+			if (appResources != null && appResources.TryGetValue(key, out var app) && app is Brush appBrush)
+				return appBrush;
+
+			return fallback;
+		}
+
+		private void OnTitleGripSizeChanged(object sender, SizeChangedEventArgs e)
+		{
+			if (_titleGrip == null)
+				return;
+
+			var width = e.NewSize.Width;
+			var dots = new GeometryGroup();
+			for (var x = 0.0; x + 1 <= width; x += 4)
+				dots.Children.Add(new RectangleGeometry { Rect = new Windows.Foundation.Rect(x, 0, 1, 1) });
+			for (var x = 2.0; x + 1 <= width; x += 4)
+				dots.Children.Add(new RectangleGeometry { Rect = new Windows.Foundation.Rect(x, 2, 1, 1) });
+			_titleGrip.Data = dots;
 		}
 
 		private void HideNativeWindowChrome()
@@ -486,6 +619,9 @@ namespace AvalonDock.Controls
 		/// <summary>The content that should become active when this floating window is focused.</summary>
 		protected virtual LayoutContent GetSelectedContent() => null;
 
+		protected virtual bool ShowWindowsTitleBar => true;
+		protected virtual bool UseToolWindowTitleChrome => false;
+
 		// When the floating window gains focus, mark its content active so its tab renders
 		// with the active (focused) highlight. Clicking another window deactivates it via the
 		// normal ActiveContent flow (the newly-activated content clears this one's IsActive).
@@ -504,6 +640,8 @@ namespace AvalonDock.Controls
 				return;
 			if (content != null && !content.IsActive)
 				content.IsActive = true;
+			if (UseToolWindowTitleChrome)
+				UpdateWindowsTitleBarChrome();
 		}
 
 		private void OnWindowClosed(object sender, WindowEventArgs e)
@@ -615,6 +753,8 @@ namespace AvalonDock.Controls
 
 		public override ILayoutElement Model => _model;
 
+		protected override bool UseToolWindowTitleChrome => true;
+
 		protected override string GetWindowTitle()
 		{
 			var pane = _model.RootPanel?.Descendents().OfType<LayoutAnchorablePane>()
@@ -632,7 +772,12 @@ namespace AvalonDock.Controls
 			var pane = _model.RootPanel?.Descendents().OfType<LayoutAnchorablePane>()
 				.FirstOrDefault();
 			if (pane != null)
-				host.Content = new LayoutAnchorablePaneControl(pane, true);
+				host.Content = new LayoutAnchorablePaneControl(pane, true)
+				{
+					FloatingWindowDragStarted = () => OnTitleBarDragStarted?.Invoke(),
+					FloatingWindowCloseRequested = () => OnChildWindowCloseRequested?.Invoke(),
+					HideHeaderWhenHostedInFloatingWindow = true
+				};
 		}
 	}
 

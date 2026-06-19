@@ -44,7 +44,7 @@
                         </Grid.ColumnDefinitions>
 
                         <ContentPresenter x:Name="PART_TopSidePanel"
-                                          Grid.Row="0" Grid.Column="1"
+                                          Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
                                           Content="{TemplateBinding TopSidePanel}" />
                         <ContentPresenter x:Name="PART_LeftSidePanel"
                                           Grid.Row="1" Grid.Column="0"
@@ -53,7 +53,7 @@
                                           Grid.Row="1" Grid.Column="2"
                                           Content="{TemplateBinding RightSidePanel}" />
                         <ContentPresenter x:Name="PART_BottomSidePanel"
-                                          Grid.Row="2" Grid.Column="1"
+                                          Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                                           Content="{TemplateBinding BottomSidePanel}" />
 
                         <ContentPresenter x:Name="PART_LayoutRootPanel"
@@ -161,7 +161,8 @@
                                 Background="{StaticResource UnoDock_VS2010_ContentBackground}"
                                 BorderBrush="{StaticResource UnoDock_VS2010_PanelBorderBrush}"
                                 BorderThickness="1,0,1,1">
-                            <ContentPresenter Content="{TemplateBinding SelectedContent}" />
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding SelectedContent}" />
                         </Border>
                     </Grid>
                 </ControlTemplate>
@@ -222,31 +223,31 @@
 
                                 <Button x:Name="PART_HeaderMenu"
                                         Grid.Column="2"
-                                        Width="18" Height="18"
-                                        Margin="2,0,0,0"
+                                        Width="16" Height="16"
+                                        Margin="0"
                                         Padding="0"
                                         Background="Transparent"
                                         BorderBrush="Transparent"
-                                        BorderThickness="1"
+                                        BorderThickness="0"
                                         VerticalAlignment="Center"
                                         ToolTipService.ToolTip="Window menu">
-                                    <Path Width="8" Height="8" Margin="0,0,0,1"
-                                          Data="M 352.041,32.0005L 320,0.000162761L 384,0.000162761L 352.041,32.0005 Z"
+                                    <Path Width="7" Height="4"
+                                          Data="M 0,0 L 7,0 L 3.5,4 Z"
                                           Fill="{StaticResource UnoDock_VS2010_ToolWindowCaptionButtonInactiveGlyph}"
                                           Stretch="Uniform" />
                                 </Button>
 
                                 <Button x:Name="PART_HeaderAutoHide"
                                         Grid.Column="3"
-                                        Width="18" Height="18"
-                                        Margin="2,0,0,0"
+                                        Width="16" Height="16"
+                                        Margin="0"
                                         Padding="0"
                                         Background="Transparent"
                                         BorderBrush="Transparent"
-                                        BorderThickness="1"
+                                        BorderThickness="0"
                                         VerticalAlignment="Center"
                                         ToolTipService.ToolTip="Auto Hide">
-                                    <Path Width="11" Height="11"
+                                    <Path Width="9" Height="9"
                                           Data="M 128,17.475L 130.842,17.475L 130.842,2.91001L 130.842,0.608195L 130.842,0.000223796L 139.593,0.000223796L 145.003,0.000223796L 145.424,0.000223796L 145.424,17.475L 148.413,17.475L 148.413,20.3848L 139.684,20.3848L 139.684,32.0003L 136.752,32.0003L 136.752,20.3848L 128,20.3848L 128,17.475 Z M 133.774,2.91007L 133.774,17.475L 139.593,17.475L 139.593,2.91007L 133.774,2.91007 Z"
                                           Fill="{StaticResource UnoDock_VS2010_ToolWindowCaptionButtonInactiveGlyph}"
                                           Stretch="Uniform" />
@@ -254,16 +255,16 @@
 
                                 <Button x:Name="PART_HeaderClose"
                                         Grid.Column="4"
-                                        Width="18" Height="18"
-                                        Margin="2,0,0,0"
+                                        Width="16" Height="16"
+                                        Margin="0"
                                         Padding="0"
                                         Background="Transparent"
                                         BorderBrush="Transparent"
-                                        BorderThickness="1"
+                                        BorderThickness="0"
                                         VerticalAlignment="Center"
                                         ToolTipService.ToolTip="Close">
-                                    <Path Width="10" Height="10" Margin="1,0,0,1"
-                                          Data="M 0,2.0345e-005L 7.62109,2.0345e-005L 19.2627,12.0551L 30.9043,2.0345e-005L 38.5241,2.0345e-005L 23.0726,16.0003L 38.5234,32L 30.9023,32L 19.2621,19.9462L 7.62177,32L 0.00195313,32L 15.4521,16.001L 0,2.0345e-005 Z"
+                                    <Path Width="8" Height="8"
+                                          Data="M 0,1 L 1,0 L 4,3 L 7,0 L 8,1 L 5,4 L 8,7 L 7,8 L 4,5 L 1,8 L 0,7 L 3,4 Z"
                                           Fill="{StaticResource UnoDock_VS2010_ToolWindowCaptionButtonInactiveGlyph}"
                                           Stretch="Uniform" />
                                 </Button>
@@ -312,7 +313,8 @@
                         <Border Grid.Row="1"
                                 Background="{StaticResource UnoDock_VS2010_ContentBackground}"
                                 Padding="4">
-                            <ContentPresenter Content="{TemplateBinding SelectedContent}" />
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding SelectedContent}" />
                         </Border>
                     </Grid>
                     </Border>

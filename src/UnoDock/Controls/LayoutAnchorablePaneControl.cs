@@ -7,6 +7,7 @@ using System.Linq;
 using AvalonDock;
 using AvalonDock.Layout;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -28,6 +29,7 @@ namespace AvalonDock.Controls
 		private Button _headerAutoHideButton;
 		private Button _headerCloseButton;
 		private Path _headerGrip;
+		private FrameworkElement _contentPresenter;
 		private int _headerGripTileCount = -1;
 
 		private enum HeaderButtonState
@@ -39,10 +41,15 @@ namespace AvalonDock.Controls
 
 		// Drag-to-float state (mirrors LayoutDocumentPaneControl)
 		private LayoutAnchorable _dragTab;
+		private bool _dragPane;
 		private double _dragStartX;
 		private double _dragStartY;
 		private const double FloatDownThreshold = 40.0;
 		private const double FloatDragThreshold = 24.0;
+
+		internal Action FloatingWindowDragStarted { get; set; }
+		internal Action FloatingWindowCloseRequested { get; set; }
+		internal bool HideHeaderWhenHostedInFloatingWindow { get; set; }
 
 		public static readonly DependencyProperty SelectedContentProperty =
 			DependencyProperty.Register(nameof(SelectedContent), typeof(object),
@@ -72,6 +79,7 @@ namespace AvalonDock.Controls
 				if (ce.NewItems != null)
 					foreach (LayoutAnchorable c in ce.NewItems)
 						c.PropertyChanged += OnChildPropertyChanged;
+				UpdateToolPaneChrome();
 			};
 		}
 
@@ -103,6 +111,13 @@ namespace AvalonDock.Controls
 		{
 			base.OnApplyTemplate();
 			_headerBorder = GetTemplateChild("PART_HeaderBorder") as Border;
+			if (_headerBorder != null)
+			{
+				_headerBorder.PointerPressed += OnHeaderPointerPressed;
+				_headerBorder.PointerMoved += OnHeaderPointerMoved;
+				_headerBorder.PointerReleased += OnHeaderPointerReleased;
+				_headerBorder.PointerCaptureLost += (_, _) => _dragPane = false;
+			}
 			_headerTitle = GetTemplateChild("PART_HeaderTitle") as TextBlock;
 			_headerGrip = GetTemplateChild("PART_HeaderGrip") as Path;
 			if (_headerGrip != null)
@@ -111,6 +126,7 @@ namespace AvalonDock.Controls
 			_headerAutoHideButton = GetTemplateChild("PART_HeaderAutoHide") as Button;
 			_headerCloseButton = GetTemplateChild("PART_HeaderClose") as Button;
 			_tabStripHost = GetTemplateChild("PART_TabStripHost") as FrameworkElement;
+			_contentPresenter = GetTemplateChild("PART_ContentPresenter") as FrameworkElement;
 
 			if (_headerMenuButton != null)
 				_headerMenuButton.Click += OnHeaderMenuClick;
@@ -118,6 +134,8 @@ namespace AvalonDock.Controls
 				_headerAutoHideButton.Click += OnHeaderAutoHideClick;
 			if (_headerCloseButton != null)
 				_headerCloseButton.Click += OnHeaderCloseClick;
+			if (_contentPresenter != null)
+				_contentPresenter.AddHandler(PointerPressedEvent, new PointerEventHandler(OnPanePointerPressed), handledEventsToo: true);
 
 			WireHeaderButtonVisualState(_headerMenuButton);
 			WireHeaderButtonVisualState(_headerAutoHideButton);
@@ -132,15 +150,101 @@ namespace AvalonDock.Controls
 				_tabStrip.PointerCaptureLost += (_, _) => _dragTab = null;
 				_tabStrip.RightTapped     += OnTabStripRightTapped;
 			}
+			AddHandler(PointerPressedEvent, new PointerEventHandler(OnPanePointerPressed), handledEventsToo: true);
 			Loaded += (_, _) =>
 			{
 				EnsureSelectedContent();
 				SyncSelection();
 				UpdateTabHighlights(_model.SelectedContent);
 				UpdateHeaderChrome(_model.SelectedContent as LayoutAnchorable);
-				UpdateFloatingSinglePaneChrome();
+				UpdateToolPaneChrome();
 			};
-			UpdateFloatingSinglePaneChrome();
+			UpdateToolPaneChrome();
+		}
+
+		private void OnPanePointerPressed(object sender, PointerRoutedEventArgs e)
+		{
+			ActivateAnchorable(GetSelectedAnchorable());
+		}
+
+		private void OnHeaderPointerPressed(object sender, PointerRoutedEventArgs e)
+		{
+			ActivateAnchorable(GetSelectedAnchorable());
+			if (IsHeaderButtonSource(e.OriginalSource as FrameworkElement))
+				return;
+
+			var startPoint = e.GetCurrentPoint(_headerBorder).Position;
+			_dragPane = true;
+			_dragStartX = startPoint.X;
+			_dragStartY = startPoint.Y;
+			_headerBorder?.CapturePointer(e.Pointer);
+		}
+
+		private void OnHeaderPointerMoved(object sender, PointerRoutedEventArgs e)
+		{
+			if (!_dragPane || _headerBorder == null)
+				return;
+
+			var point = e.GetCurrentPoint(_headerBorder);
+			var isMouse = e.Pointer.PointerDeviceType == Microsoft.UI.Input.PointerDeviceType.Mouse;
+			if (!point.Properties.IsLeftButtonPressed && !isMouse)
+			{
+				_dragPane = false;
+				return;
+			}
+
+			var dx = Math.Abs(point.Position.X - _dragStartX);
+			var dy = Math.Abs(point.Position.Y - _dragStartY);
+			if (dx < FloatDragThreshold && dy < FloatDragThreshold)
+				return;
+
+			_dragPane = false;
+			_headerBorder.ReleasePointerCapture(e.Pointer);
+			var mgr = _model.Root?.Manager;
+			if (mgr == null || _model.Children.Count == 0)
+				return;
+
+			double? screenLeft = null, screenTop = null;
+			if (OperatingSystem.IsWindows())
+			{
+				var cursor = WindowsFloatingWindowDragTracker.GetCursorScreen();
+				screenLeft = cursor.X;
+				screenTop = cursor.Y;
+			}
+
+			e.Handled = true;
+			DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal,
+				() =>
+				{
+					if (_model.IsHostedInFloatingWindow)
+						FloatingWindowDragStarted?.Invoke();
+					else
+						mgr.StartDraggingFloatingWindowForPane(_model,
+							initialScreenLeft: screenLeft,
+							initialScreenTop: screenTop);
+				});
+		}
+
+		private void OnHeaderPointerReleased(object sender, PointerRoutedEventArgs e)
+		{
+			_dragPane = false;
+			_headerBorder?.ReleasePointerCapture(e.Pointer);
+		}
+
+		private bool IsHeaderButtonSource(FrameworkElement element)
+		{
+			while (element != null && element != _headerBorder)
+			{
+				if (ReferenceEquals(element, _headerMenuButton)
+				    || ReferenceEquals(element, _headerAutoHideButton)
+				    || ReferenceEquals(element, _headerCloseButton)
+				    || element is Button)
+					return true;
+
+				element = element.Parent as FrameworkElement;
+			}
+
+			return false;
 		}
 
 		// WinUI/Uno have no tiling brush, so the header drag-grip dots (WPF VS
@@ -204,7 +308,10 @@ namespace AvalonDock.Controls
 		private void OnHeaderAutoHideClick(object sender, RoutedEventArgs e)
 		{
 			var selected = GetSelectedAnchorable();
-			if (selected?.CanAutoHide == true)
+			if (selected == null)
+				return;
+
+			if (selected.CanAutoHide)
 				selected.ToggleAutoHide();
 		}
 
@@ -213,6 +320,12 @@ namespace AvalonDock.Controls
 			var selected = GetSelectedAnchorable();
 			if (selected == null)
 				return;
+
+			if (_model.IsHostedInFloatingWindow)
+			{
+				FloatingWindowCloseRequested?.Invoke();
+				return;
+			}
 
 			if (selected.CanClose)
 				_model.Root?.Manager?.ExecuteCloseCommand(selected);
@@ -271,9 +384,14 @@ namespace AvalonDock.Controls
 				screenTop = cursor.Y;
 			}
 
-			mgr?.StartDraggingFloatingWindowForContent(tabToFloat,
-				initialScreenLeft: screenLeft, initialScreenTop: screenTop);
 			e.Handled = true;
+			if (mgr != null)
+			{
+				DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal,
+					() => mgr.StartDraggingFloatingWindowForContent(tabToFloat,
+						initialScreenLeft: screenLeft,
+						initialScreenTop: screenTop));
+			}
 		}
 
 		private void OnTabStripPointerReleased(object sender, PointerRoutedEventArgs e)
@@ -295,7 +413,7 @@ namespace AvalonDock.Controls
 					// change SelectedContentIndex, so SyncSelection never runs and
 					// IsActive would stay false. Set it here so any tool-tab click
 					// activates the pane and turns its header blue (VS2013 behavior).
-					if (!la.IsActive) la.IsActive = true;
+					ActivateAnchorable(la);
 					// Start tracking for drag-to-float
 					_dragTab = la;
 					var startPt = e.GetCurrentPoint(_tabStrip).Position;
@@ -337,7 +455,7 @@ namespace AvalonDock.Controls
 			if (SelectedItem != sel) SelectedItem = sel;
 			SelectedContent = sel?.Content;
 			UpdateHeaderChrome(sel as LayoutAnchorable);
-			UpdateFloatingSinglePaneChrome();
+			UpdateToolPaneChrome();
 			if (DispatcherQueue != null)
 				DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
 					() => UpdateTabHighlights(sel));
@@ -345,15 +463,15 @@ namespace AvalonDock.Controls
 				UpdateTabHighlights(sel);
 		}
 
-		private void UpdateFloatingSinglePaneChrome()
+		private void UpdateToolPaneChrome()
 		{
-			var hide = _model.IsDirectlyHostedInFloatingWindow && _model.Children.Count == 1;
-			var visibility = hide ? Visibility.Collapsed : Visibility.Visible;
+			var isSinglePane = _model.Children.Count <= 1;
+			var hideHeader = HideHeaderWhenHostedInFloatingWindow && _model.IsHostedInFloatingWindow;
 
 			if (_headerBorder != null)
-				_headerBorder.Visibility = visibility;
+				_headerBorder.Visibility = hideHeader ? Visibility.Collapsed : Visibility.Visible;
 			if (_tabStripHost != null)
-				_tabStripHost.Visibility = visibility;
+				_tabStripHost.Visibility = isSinglePane ? Visibility.Collapsed : Visibility.Visible;
 		}
 
 		private void EnsureSelectedContent()
@@ -388,6 +506,7 @@ namespace AvalonDock.Controls
 
 		private void UpdateHeaderChrome(LayoutAnchorable selected)
 		{
+			var headerContent = selected ?? _model.SelectedContent as LayoutAnchorable;
 			var isActive = selected?.IsActive == true;
 			var captionBg = ResolveBrush(
 				isActive ? "UnoDock_VS2013_ToolWindowCaptionActiveBackground" : "UnoDock_VS2013_ToolWindowCaptionInactiveBackground",
@@ -409,17 +528,80 @@ namespace AvalonDock.Controls
 			}
 
 			if (_headerMenuButton != null)
-				_headerMenuButton.IsEnabled = selected != null;
+				_headerMenuButton.IsEnabled = headerContent != null;
 
 			if (_headerAutoHideButton != null)
-				_headerAutoHideButton.IsEnabled = selected?.CanAutoHide == true;
+			{
+				_headerAutoHideButton.IsEnabled = headerContent?.CanAutoHide == true;
+				ToolTipService.SetToolTip(_headerAutoHideButton, "Auto Hide");
+			}
 
 			if (_headerCloseButton != null)
-				_headerCloseButton.IsEnabled = selected?.CanClose == true || selected?.CanHide == true;
+				_headerCloseButton.IsEnabled = headerContent?.CanClose == true || headerContent?.CanHide == true;
 
-			ApplyHeaderButtonVisual(_headerMenuButton, selected, HeaderButtonState.Normal);
-			ApplyHeaderButtonVisual(_headerAutoHideButton, selected, HeaderButtonState.Normal);
-			ApplyHeaderButtonVisual(_headerCloseButton, selected, HeaderButtonState.Normal);
+			UpdateHeaderAutomationIds(headerContent);
+			ApplyHeaderButtonVisual(_headerMenuButton, headerContent, HeaderButtonState.Normal);
+			ApplyHeaderButtonVisual(_headerAutoHideButton, headerContent, HeaderButtonState.Normal);
+			ApplyHeaderButtonVisual(_headerCloseButton, headerContent, HeaderButtonState.Normal);
+		}
+
+		private void UpdateHeaderAutomationIds(LayoutAnchorable selected)
+		{
+			var id = GetStableAutomationId(selected);
+			if (id == null)
+				return;
+
+			if (_headerBorder != null)
+			{
+				AutomationProperties.SetAutomationId(_headerBorder, $"{id}.Header");
+				_headerBorder.Name = $"{id}.Header";
+			}
+			if (_headerMenuButton != null)
+			{
+				AutomationProperties.SetAutomationId(_headerMenuButton, $"{id}.HeaderMenu");
+				_headerMenuButton.Name = $"{id}.HeaderMenu";
+			}
+			if (_headerAutoHideButton != null)
+			{
+				AutomationProperties.SetAutomationId(_headerAutoHideButton, $"{id}.HeaderAutoHide");
+				_headerAutoHideButton.Name = $"{id}.HeaderAutoHide";
+			}
+			if (_headerCloseButton != null)
+			{
+				AutomationProperties.SetAutomationId(_headerCloseButton, $"{id}.HeaderClose");
+				_headerCloseButton.Name = $"{id}.HeaderClose";
+			}
+		}
+
+		private void ActivateAnchorable(LayoutAnchorable anchorable)
+		{
+			if (anchorable == null)
+				return;
+
+			var index = _model.Children.IndexOf(anchorable);
+			if (index >= 0 && _model.SelectedContentIndex != index)
+				_model.SelectedContentIndex = index;
+
+			if (!anchorable.IsSelected)
+				anchorable.IsSelected = true;
+			if (!anchorable.IsActive)
+				anchorable.IsActive = true;
+
+			UpdateHeaderChrome(anchorable);
+			UpdateTabHighlights(anchorable);
+		}
+
+		private static string GetStableAutomationId(LayoutAnchorable anchorable)
+		{
+			var id = anchorable?.ContentId;
+			if (string.IsNullOrWhiteSpace(id))
+				id = anchorable?.Title;
+
+			if (string.IsNullOrWhiteSpace(id))
+				return null;
+
+			var chars = id.Select(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' ? ch : '-').ToArray();
+			return new string(chars);
 		}
 
 		private void ApplyHeaderButtonVisual(Button button, LayoutAnchorable selected, HeaderButtonState state)

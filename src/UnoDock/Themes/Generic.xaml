@@ -28,7 +28,7 @@
 
                             <!-- Auto-hide side panels (tabs along edges) -->
                             <ContentPresenter x:Name="PART_TopSidePanel"
-                                              Grid.Row="0" Grid.Column="1"
+                                              Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
                                               Content="{TemplateBinding TopSidePanel}" />
                             <ContentPresenter x:Name="PART_LeftSidePanel"
                                               Grid.Row="1" Grid.Column="0"
@@ -37,7 +37,7 @@
                                               Grid.Row="1" Grid.Column="2"
                                               Content="{TemplateBinding RightSidePanel}" />
                             <ContentPresenter x:Name="PART_BottomSidePanel"
-                                              Grid.Row="2" Grid.Column="1"
+                                              Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                                               Content="{TemplateBinding BottomSidePanel}" />
 
                             <!-- Center: the main docked layout -->
@@ -185,7 +185,8 @@
                         <!-- Content area -->
                         <Border Grid.Row="1"
                                 Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
-                            <ContentPresenter Content="{TemplateBinding SelectedContent}" />
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding SelectedContent}" />
                         </Border>
                     </Grid>
                 </ControlTemplate>
@@ -250,7 +251,8 @@
                         <Border Grid.Row="1"
                                 Background="{ThemeResource SystemControlBackgroundAltHighBrush}"
                                 Padding="4">
-                            <ContentPresenter Content="{TemplateBinding SelectedContent}" />
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding SelectedContent}" />
                         </Border>
                     </Grid>
                 </ControlTemplate>

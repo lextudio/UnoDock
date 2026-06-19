@@ -555,7 +555,64 @@ namespace AvalonDock
 			DragLogW(
 				$"StartDraggingFloatingWindow created: size=({fwc.Width:F0}x{fwc.Height:F0}) " +
 				$"leftTop=({fwc.Left:F0},{fwc.Top:F0}) startDrag={startDrag}");
+			ShowFloatingWindow(fwc, startDrag, useNativeInitialPlacement);
+		}
 
+		public void StartDraggingFloatingWindowForPane(
+			LayoutAnchorablePane pane,
+			bool startDrag = true,
+			double? initialScreenLeft = null,
+			double? initialScreenTop = null)
+		{
+			if (pane == null || pane.ChildrenCount == 0 || pane.IsHostedInFloatingWindow)
+				return;
+			if (!pane.Children.All(child => child.CanFloat))
+				return;
+
+			var parentGroup = pane.Parent as ILayoutGroup;
+			var paneIndex = parentGroup?.IndexOfChild(pane) ?? -1;
+			if (parentGroup == null || paneIndex < 0)
+				return;
+
+			bool useNativeInitialPlacement = false;
+#if !WINDOWS
+			useNativeInitialPlacement = startDrag && OperatingSystem.IsMacOS();
+#endif
+			var paneActualSize = pane as ILayoutPositionableElementWithActualSize;
+			var fwWidth = pane.FloatingWidth != 0 ? pane.FloatingWidth : paneActualSize?.ActualWidth + 10 ?? 400;
+			var fwHeight = pane.FloatingHeight != 0 ? pane.FloatingHeight : paneActualSize?.ActualHeight + 10 ?? 300;
+			var left = useNativeInitialPlacement ? 0 : initialScreenLeft ?? pane.FloatingLeft;
+			var top = useNativeInitialPlacement ? 0 : initialScreenTop ?? pane.FloatingTop;
+
+			parentGroup.RemoveChildAt(paneIndex);
+			RefreshAfterLayoutMutation();
+
+			for (var index = 0; index < pane.Children.Count; index++)
+			{
+				var child = pane.Children[index];
+				((ILayoutPreviousContainer)child).PreviousContainer = pane;
+				child.PreviousContainerIndex = index;
+			}
+
+			var fw = new LayoutAnchorableFloatingWindow
+			{
+				RootPanel = new LayoutAnchorablePaneGroup(pane)
+			};
+			Layout.FloatingWindows.Add(fw);
+			var fwc = new LayoutAnchorableFloatingWindowControl(fw, isContentImmutable: true)
+			{
+				Width = fwWidth,
+				Height = fwHeight,
+				Left = left,
+				Top = top,
+			};
+			_fwList.Add(fwc);
+			ShowFloatingWindow(fwc, startDrag, useNativeInitialPlacement);
+		}
+
+		private void ShowFloatingWindow(LayoutFloatingWindowControl fwc, bool startDrag, bool useNativeInitialPlacement)
+		{
+			fwc.ShowHiddenUntilPositioned = useNativeInitialPlacement;
 			// Wire re-drag: when the user grabs the floating window's title bar (after the
 			// initial tear-off or later), restart the native/timer drag from wherever the
 			// cursor currently sits inside the window. This mirrors what WPF AvalonDock does
@@ -607,6 +664,7 @@ namespace AvalonDock
 				StartDragTracking(fwc, realDrag: true);
 #endif
 			};
+			fwc.OnChildWindowCloseRequested = () => CloseFloatingWindowFromChildChrome(fwc);
 
 			// Windows initial tear-off: pre-position the window so the cursor lands a little
 			// inside the custom 32px title bar — NOT centered. Centering on a wide pane's
@@ -1401,6 +1459,20 @@ namespace AvalonDock
 		private void RemoveFloatingWindowAfterDrop(LayoutFloatingWindowControl floatingWindowControl)
 		{
 			floatingWindowControl.KeepContentVisibleOnClose = true;
+			floatingWindowControl.InternalClose();
+			_fwList.Remove(floatingWindowControl);
+			Layout?.FloatingWindows.Remove(floatingWindowControl.Model as LayoutFloatingWindow);
+#if !WINDOWS
+			if (OperatingSystem.IsMacOS() && _fwList.Count == 0)
+				StopWatchdog();
+#endif
+		}
+
+		private void CloseFloatingWindowFromChildChrome(LayoutFloatingWindowControl floatingWindowControl)
+		{
+			if (floatingWindowControl == null)
+				return;
+
 			floatingWindowControl.InternalClose();
 			_fwList.Remove(floatingWindowControl);
 			Layout?.FloatingWindows.Remove(floatingWindowControl.Model as LayoutFloatingWindow);
