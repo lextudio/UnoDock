@@ -458,6 +458,45 @@ public static class DockDiagnostics
 		       $"tabCounts=[{string.Join(",", docPanes.Select(p => p.ChildrenCount))}]";
 	});
 
+	[DevFlowAction("dock-query-layout",
+		Description = "Returns the current layout as deterministic JSON (document panes, " +
+		              "anchorable panes, floating windows, hidden) for reliable test assertions.")]
+	public static string QueryLayout() => RunOnUI(() =>
+	{
+		var dm = GetDM();
+		if (dm == null) return "{\"error\":\"no DockingManager\"}";
+		var layout = dm.Layout;
+		if (layout == null) return "{\"error\":\"no Layout\"}";
+
+		string Q(string s) => "\"" + (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+		string Arr(IEnumerable<string> items) => "[" + string.Join(",", items) + "]";
+
+		string DocPane(LayoutDocumentPane p) =>
+			"{\"tabs\":" + Arr(p.Children.Select(c => Q(c.ContentId ?? c.Title))) +
+			",\"selected\":" + p.SelectedContentIndex + "}";
+		string AnchPane(LayoutAnchorablePane p) =>
+			"{\"tabs\":" + Arr(p.Children.Select(c => Q(c.ContentId ?? c.Title))) +
+			",\"selected\":" + p.SelectedContentIndex + "}";
+		string Fw(LayoutFloatingWindow f) =>
+			"{\"kind\":" + Q(f is LayoutAnchorableFloatingWindow ? "anchorable" : "document") +
+			",\"contents\":" + Arr(f.Descendents().OfType<LayoutContent>().Select(c => Q(c.ContentId ?? c.Title))) + "}";
+
+		// Docked panes come from RootPanel only — NOT layout.Descendents(), which also
+		// walks into floating windows' internal panes (so a floated tool would wrongly
+		// appear both here and under floatingWindows). Floating panes are reported
+		// separately below via layout.FloatingWindows.
+		var rootDescendents = layout.RootPanel?.Descendents() ?? Enumerable.Empty<ILayoutElement>();
+		var docPanes = rootDescendents.OfType<LayoutDocumentPane>().Select(DocPane);
+		var anchPanes = rootDescendents.OfType<LayoutAnchorablePane>().Select(AnchPane);
+		var fws = (layout.FloatingWindows ?? Enumerable.Empty<LayoutFloatingWindow>()).Select(Fw);
+		var hidden = (layout.Hidden ?? Enumerable.Empty<LayoutAnchorable>()).Select(a => Q(a.ContentId ?? a.Title));
+
+		return "{\"documentPanes\":" + Arr(docPanes) +
+		       ",\"anchorablePanes\":" + Arr(anchPanes) +
+		       ",\"floatingWindows\":" + Arr(fws) +
+		       ",\"hidden\":" + Arr(hidden) + "}";
+	});
+
 	private static IEnumerable<TControl> EnumerateVisualsOfType<TControl>(DependencyObject root)
 		where TControl : DependencyObject
 	{

@@ -69,6 +69,15 @@ namespace AvalonDock.Controls
 
 		public bool IsVisible => _window != null;
 
+		/// <summary>
+		/// Persist this window's current geometry (Left/Top/Width/Height) into its
+		/// layout model so serialized layouts round-trip the floated position/size.
+		/// Parity with WPF AvalonDock's UpdatePositionAndSizeOfPanes; harmless no-op
+		/// once the content has docked out (no floating elements remain under Model).
+		/// </summary>
+		public void WritePositionAndSizeToModel()
+			=> FloatingGeometry.WriteBack(Model, Left, Top, Width, Height);
+
 		/// <summary>Creates the Uno Window and shows it.</summary>
 		public void Show()
 		{

@@ -1,0 +1,70 @@
+name: CI
+
+# Three platform legs (docs/refactoring.md, Challenge 4): a green run means all
+# three supported matrices build. Windows/Skia runs the headless NUnit suite;
+# Windows/WinUI builds the Windows App SDK target via msbuild (dotnet build fails
+# with UNOB0008 for XAML WinUI class libraries — see docs/winui.md); macOS/Skia
+# builds + tests the Skia desktop target.
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  windows-skia:
+    name: Windows / Skia (net10.0-desktop) — headless tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore Uno workloads
+        run: dotnet workload restore src/UnoDock.slnx
+      - name: Test (net10.0-desktop)
+        # Integration tests skip automatically (DEVFLOW_TEST_PORT unset).
+        run: dotnet test src/UnoDock.Tests/UnoDock.Tests.csproj -f net10.0-desktop -c Release
+
+  windows-winui:
+    name: Windows / WinUI (net10.0-windows10.0.19041.0) — build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # Uno's UNOB0008 guard rejects the dotnet host for XAML WinUI libraries —
+      # must use the Visual Studio MSBuild.exe (verified locally: dotnet msbuild
+      # also fails, only VS MSBuild works). See docs/winui.md.
+      - name: Add VS MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+      - name: Restore Uno workloads
+        run: dotnet workload restore src/UnoDock.slnx
+      - name: Restore (VS MSBuild)
+        run: msbuild src/UnoDock.slnx -t:restore -p:Configuration=Release -m
+      - name: Build WinUI target (VS MSBuild)
+        run: >
+          msbuild src/UnoDock/UnoDock.csproj -t:build
+          -p:Configuration=Release
+          -p:TargetFramework=net10.0-windows10.0.19041.0
+          -m -verbosity:minimal -nologo
+
+  macos-skia:
+    name: macOS / Skia (net10.0-desktop) — build + tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore Uno workloads
+        run: dotnet workload restore src/UnoDock.slnx
+      - name: Test (net10.0-desktop)
+        run: dotnet test src/UnoDock.Tests/UnoDock.Tests.csproj -f net10.0-desktop -c Release

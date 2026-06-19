@@ -24,7 +24,7 @@ using Microsoft.UI.Xaml.Media;
 namespace AvalonDock
 {
 	[ContentProperty(Name = nameof(Layout))]
-	public partial class DockingManager : Control, AvalonDock.Controls.IOverlayWindowHost, Core.IDockingManager
+	public partial class DockingManager : Control, AvalonDock.Controls.IOverlayWindowHost, AvalonDock.Controls.IDragCoordinateSpace, Core.IDockingManager
 	{
 		private readonly ILayoutEngine _layoutEngine = new DefaultLayoutEngine();
 		private readonly Core.Serialization.ILayoutDtoMapper _dtoMapper = new Serialization.LayoutDtoMapper();
@@ -104,9 +104,11 @@ namespace AvalonDock
 
 		event EventHandler<Core.Events.AnchorableEventArgs> Core.IDockingManager.AnchorableHidden { add { } remove { } }
 
-		event EventHandler<Core.Events.ContentCancelEventArgs> Core.IDockingManager.ContentFloating { add { } remove { } }
+		/// <summary>Raised before a content is floated; set <see cref="System.ComponentModel.CancelEventArgs.Cancel"/> to veto.</summary>
+		public event EventHandler<Core.Events.ContentCancelEventArgs> ContentFloating;
 
-		event EventHandler<Core.Events.ContentEventArgs> Core.IDockingManager.ContentFloated { add { } remove { } }
+		/// <summary>Raised after a content has been floated into its own window.</summary>
+		public event EventHandler<Core.Events.ContentEventArgs> ContentFloated;
 
 		event EventHandler<Core.Events.ContentCancelEventArgs> Core.IDockingManager.ContentDocking { add { } remove { } }
 
@@ -422,15 +424,32 @@ namespace AvalonDock
 			return ComputeScreenOriginW();
 		}
 
-		/// <summary>Current cursor in native screen coordinates.</summary>
-		private static (double X, double Y) NativeCursorScreen()
+		// Rasterization scale that maps native screen pixels to manager-local DIPs.
+		// macOS drag coordinates are logical points already, so the conversion uses 1.
+		private double DragLocalScale()
 		{
-#if !WINDOWS
-			if (OperatingSystem.IsMacOS())
-				return AvalonDock.Hosting.MacOSWindowTabbing.GetCursorLocationQuartz();
-#endif
-			return WindowsFloatingWindowDragTracker.GetCursorScreen();
+			if (OperatingSystem.IsWindows())
+			{
+				var scale = XamlRoot?.RasterizationScale ?? 1.0;
+				return scale > 0 ? scale : 1.0;
+			}
+			return 1.0;
 		}
+
+		// ── IDragCoordinateSpace (coordinate seam; see DragCoordinateSpace.cs) ──
+		(double X, double Y) Controls.IDragCoordinateSpace.GetScreenOrigin() => ComputeScreenOrigin();
+
+		Windows.Foundation.Point Controls.IDragCoordinateSpace.ScreenToManagerLocal(Windows.Foundation.Point screen)
+		{
+			var (ox, oy) = ComputeScreenOrigin();
+			return Controls.DragCoordinateMath.ScreenToManagerLocal(screen, ox, oy, DragLocalScale());
+		}
+
+		/// <summary>Current cursor in native screen coordinates.</summary>
+		// Native cursor read goes through the IPointerProbe seam (PointerProbe.cs),
+		// which confines the platform `#if` to one place.
+		private static (double X, double Y) NativeCursorScreen()
+			=> Controls.PointerProbe.Shared.GetCursorScreen();
 
 		/// <summary>Top-left of a floating window in native screen coordinates.</summary>
 		private static (double X, double Y) NativeWindowTopLeft(LayoutFloatingWindowControl fwc)
@@ -440,6 +459,25 @@ namespace AvalonDock
 				return AvalonDock.Hosting.MacOSWindowTabbing.GetWindowPosition(fwc.NsWindowHandle);
 #endif
 			return fwc.GetWindowPosition();
+		}
+
+		// Refresh the control's Left/Top from the live native window position (the OS
+		// moved it during the drag, so the pre-drag values are stale), then persist the
+		// geometry to the layout model. Parity gap #7.
+		private static void PersistFloatingGeometry(LayoutFloatingWindowControl fwc)
+		{
+			if (fwc == null) return;
+			try
+			{
+				var (x, y) = NativeWindowTopLeft(fwc);
+				if (x != 0 || y != 0)
+				{
+					fwc.Left = x;
+					fwc.Top = y;
+				}
+				fwc.WritePositionAndSizeToModel();
+			}
+			catch { /* geometry persistence is best-effort; never break drag teardown */ }
 		}
 
 		/// <summary>Bring a floating window above the main window (cursor left the manager).</summary>
@@ -480,16 +518,9 @@ namespace AvalonDock
 
 			drag.Moving += cursor =>
 			{
-				var (ox, oy) = ComputeScreenOrigin();
-				double localX = cursor.X - ox;
-				double localY = cursor.Y - oy;
-				if (OperatingSystem.IsWindows())
-				{
-					var scale = XamlRoot?.RasterizationScale ?? 1.0;
-					if (scale <= 0) scale = 1.0;
-					localX /= scale;
-					localY /= scale;
-				}
+				var local = ((Controls.IDragCoordinateSpace)this).ScreenToManagerLocal(cursor);
+				double localX = local.X;
+				double localY = local.Y;
 
 				var w = ActualWidth;
 				var h = ActualHeight;
@@ -512,6 +543,8 @@ namespace AvalonDock
 				var capturedOverlay = _overlayWindow;
 				if (activeTarget != null && capturedOverlay != null)
 					capturedOverlay.DragDrop(activeTarget);
+				else
+					PersistFloatingGeometry(fwc); // stayed floating → round-trip its final geometry
 
 				EndOverlayDrag(fwc);
 				((Controls.IOverlayWindowHost)this).HideOverlayWindow();
@@ -523,6 +556,43 @@ namespace AvalonDock
 			return true;
 		}
 
+		/// <summary>
+		/// Float <paramref name="content"/> into its own window programmatically (no drag).
+		/// This is the code-driven counterpart to the interactive tear-off and shares the
+		/// same float core (CanFloat gate, <see cref="ContentFloating"/>/<see cref="ContentFloated"/>
+		/// events, window creation), so the two paths cannot silently diverge.
+		/// </summary>
+		/// <param name="content">The content to float.</param>
+		/// <param name="bounds">Optional initial screen bounds (logical pixels). Position seeds
+		/// FloatingLeft/Top; size seeds FloatingWidth/Height when non-empty.</param>
+		public void Float(LayoutContent content, Windows.Foundation.Rect? bounds = null)
+		{
+			if (content == null) return;
+			if (bounds is { } b)
+			{
+				if (b.Width > 0) content.FloatingWidth = b.Width;
+				if (b.Height > 0) content.FloatingHeight = b.Height;
+				StartDraggingFloatingWindowForContent(content, startDrag: false, b.X, b.Y);
+			}
+			else
+			{
+				StartDraggingFloatingWindowForContent(content, startDrag: false);
+			}
+		}
+
+		// Raise the cancelable ContentFloating event. Returns true when a handler vetoed the float.
+		private bool RaiseContentFloatingCanceled(LayoutContent content)
+		{
+			var handler = ContentFloating;
+			if (handler == null) return false;
+			var args = new Core.Events.ContentCancelEventArgs(content);
+			handler(this, args);
+			return args.Cancel;
+		}
+
+		private void RaiseContentFloated(LayoutContent content)
+			=> ContentFloated?.Invoke(this, new Core.Events.ContentEventArgs(content));
+
 		/// <param name="initialScreenLeft">Optional initial screen-left in logical pixels; overrides FloatingLeft.</param>
 		/// <param name="initialScreenTop">Optional initial screen-top in logical pixels; overrides FloatingTop.</param>
 		public void StartDraggingFloatingWindowForContent(
@@ -530,6 +600,7 @@ namespace AvalonDock
 			double? initialScreenLeft = null, double? initialScreenTop = null)
 		{
 			if (content == null || !content.CanFloat) return;
+			if (RaiseContentFloatingCanceled(content)) return;
 			bool useNativeInitialPlacement = false;
 #if !WINDOWS
 			useNativeInitialPlacement = startDrag && OperatingSystem.IsMacOS();
@@ -549,13 +620,21 @@ namespace AvalonDock
 				$"StartDraggingFloatingWindow: content={content.Title} " +
 				$"FloatingLeft={content.FloatingLeft:F0} FloatingTop={content.FloatingTop:F0} " +
 				$"nativeInitialPlacement={useNativeInitialPlacement}");
-			var fwc = CreateFloatingWindow(content, false);
+			// Parity gap #6: when the last document is torn out of a single-item
+			// floating window, reuse that window instead of creating a redundant one.
+			var reuseModel = Controls.FloatingWindowReuse.FindReusable(Layout?.FloatingWindows, content);
+			var fwc = reuseModel != null
+				? _fwList.FirstOrDefault(f => ReferenceEquals(f.Model, reuseModel))
+				: null;
+			if (fwc == null)
+				fwc = CreateFloatingWindow(content, false);
 			if (fwc == null) return;
 			fwc.ShowHiddenUntilPositioned = useNativeInitialPlacement;
 			DragLogW(
 				$"StartDraggingFloatingWindow created: size=({fwc.Width:F0}x{fwc.Height:F0}) " +
 				$"leftTop=({fwc.Left:F0},{fwc.Top:F0}) startDrag={startDrag}");
 			ShowFloatingWindow(fwc, startDrag, useNativeInitialPlacement);
+			RaiseContentFloated(content);
 		}
 
 		public void StartDraggingFloatingWindowForPane(
@@ -863,7 +942,9 @@ namespace AvalonDock
 					: (0.0, 0.0);
 				if (nativeOrigin.Item1 != 0 || nativeOrigin.Item2 != 0)
 				{
-					var result = (nativeOrigin.Item1 + pt.X, nativeOrigin.Item2 + pt.Y);
+					// macOS works in logical points → no scaling of the manager offset.
+					var result = Controls.DragCoordinateMath.CombineOrigin(
+						nativeOrigin.Item1, nativeOrigin.Item2, pt.X, pt.Y, scale: 1.0);
 					DragLogWVerbose($"[OriginQ] host=0x{host:X} convOrigin=({nativeOrigin.Item1:F1},{nativeOrigin.Item2:F1}) " +
 						$"pt=({pt.X:F1},{pt.Y:F1}) result=({result.Item1:F1},{result.Item2:F1})");
 					return result;
@@ -940,6 +1021,8 @@ namespace AvalonDock
 				// _floatingWindow (cleared by DragLeave) and the overlay (nulled by HideOverlayWindow).
 				if (activeTarget != null && capturedOverlay != null)
 					capturedOverlay.DragDrop(activeTarget);
+				else
+					PersistFloatingGeometry(fwc); // stayed floating → round-trip its final geometry
 
 				EndOverlayDrag(fwc);
 				((Controls.IOverlayWindowHost)this).HideOverlayWindow();
@@ -1019,7 +1102,7 @@ namespace AvalonDock
 			// height, which manifests as a vertical offset in the drop preview/detection.
 			var aw = SafeGetAppWindow();
 			(double X, double Y)? appOrigin = aw != null
-				? (aw.Position.X + pt.X * scale, aw.Position.Y + pt.Y * scale)
+				? Controls.DragCoordinateMath.CombineOrigin(aw.Position.X, aw.Position.Y, pt.X, pt.Y, scale)
 				: null;
 
 			(double X, double Y)? clientOrigin = null;
@@ -1030,7 +1113,7 @@ namespace AvalonDock
 				{
 					var cp = new POINT32 { X = 0, Y = 0 };
 					if (ClientToScreen(hwnd, ref cp))
-						clientOrigin = (cp.X + pt.X * scale, cp.Y + pt.Y * scale);
+						clientOrigin = Controls.DragCoordinateMath.CombineOrigin(cp.X, cp.Y, pt.X, pt.Y, scale);
 				}
 				catch { }
 			}
@@ -1185,6 +1268,8 @@ namespace AvalonDock
 				var capturedOverlay = _overlayWindow;
 				if (activeTarget != null && capturedOverlay != null)
 					capturedOverlay.DragDrop(activeTarget);
+				else
+					PersistFloatingGeometry(fwc); // stayed floating → round-trip its final geometry
 
 				EndOverlayDrag(fwc);
 				((Controls.IOverlayWindowHost)this).HideOverlayWindow();
@@ -1267,81 +1352,11 @@ namespace AvalonDock
 			double hostX,
 			double hostY)
 		{
-			var candidates = areas.Where(a => IsWithinOverlayAreaHitZone(a, dragPoint)).ToList();
-			if (candidates.Count == 0)
-				return candidates;
-
-			// WPF behavior: when pointer is on splitter, only manager outer targets stay active.
-			if (FindTopMostControlAtPoint<Controls.LayoutGridResizerControl>(hostX, hostY) != null)
-				return candidates.Where(a => a.Type == Controls.DropAreaType.DockingManager).ToList();
-
-			var paneCandidates = candidates
-				.Where(IsPaneDropAreaType)
-				.ToList();
-
-			if (paneCandidates.Count <= 1)
-				return candidates;
-
-			// If cursor is inside one/more pane rects, prefer the tightest one (most specific).
-			var strict = paneCandidates.Where(a => a.DetectionRect.Contains(dragPoint)).ToList();
-			var bestPane = (strict.Count > 0 ? strict : paneCandidates)
-				.OrderBy(a => GetRectDistanceToPointSquared(a.DetectionRect, dragPoint))
-				.ThenBy(a => a.DetectionRect.Width * a.DetectionRect.Height)
-				.FirstOrDefault();
-
-			if (bestPane == null)
-				return candidates;
-
-			return candidates
-				.Where(a => a.Type == Controls.DropAreaType.DockingManager || ReferenceEquals(a, bestPane))
-				.ToList();
-		}
-
-		private static bool IsPaneDropAreaType(Controls.IDropArea area)
-		{
-			return area.Type == Controls.DropAreaType.DocumentPane
-				|| area.Type == Controls.DropAreaType.DocumentPaneGroup
-				|| area.Type == Controls.DropAreaType.AnchorablePane;
-		}
-
-		private static double GetRectDistanceToPointSquared(Windows.Foundation.Rect rect, Windows.Foundation.Point point)
-		{
-			var dx = 0.0;
-			if (point.X < rect.Left) dx = rect.Left - point.X;
-			else if (point.X > rect.Right) dx = point.X - rect.Right;
-
-			var dy = 0.0;
-			if (point.Y < rect.Top) dy = rect.Top - point.Y;
-			else if (point.Y > rect.Bottom) dy = point.Y - rect.Bottom;
-
-			return dx * dx + dy * dy;
-		}
-
-		private static bool IsWithinOverlayAreaHitZone(Controls.IDropArea area, Windows.Foundation.Point dragPoint)
-		{
-			var rect = area.DetectionRect;
-			if (rect.Contains(dragPoint))
-				return true;
-
-			// Full-compass outer buttons can render slightly outside pane bounds.
-			// Expand pane/group hit zones so pointer-over-button still keeps the area active.
-			var inflate = area.Type switch
-			{
-				Controls.DropAreaType.DocumentPane => 64.0,
-				Controls.DropAreaType.DocumentPaneGroup => 64.0,
-				Controls.DropAreaType.AnchorablePane => 48.0,
-				_ => 0.0,
-			};
-
-			if (inflate <= 0)
-				return false;
-
-			var expanded = new Windows.Foundation.Rect(
-				rect.X - inflate,
-				rect.Y - inflate,
-				rect.Width + inflate * 2,
-				rect.Height + inflate * 2);
-			return expanded.Contains(dragPoint);
+			// Pure area-selection lives in OverlayHitTester (headless-testable). The only
+			// UI-dependent input — whether the pointer is over a splitter — is resolved here.
+			var pointerOverSplitter =
+				FindTopMostControlAtPoint<Controls.LayoutGridResizerControl>(hostX, hostY) != null;
+			return Controls.OverlayHitTester.SelectActiveAreas(areas, dragPoint, pointerOverSplitter);
 		}
 
 		private void ClearActiveOverlayTargets()
