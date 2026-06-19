@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0   # GitVersion needs full history (no shallow clone)
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
@@ -35,6 +36,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0   # GitVersion needs full history (no shallow clone)
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
@@ -61,6 +63,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0   # GitVersion needs full history (no shallow clone)
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
