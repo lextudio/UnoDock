@@ -11,11 +11,6 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <EnableDefaultUnoItems>false</EnableDefaultUnoItems>
     <UnoFeatures>SkiaRenderer</UnoFeatures>
-    <!-- Default to the published LeXtudio.Windows package (matches UnoDock.csproj).
-         The sibling WindowsShims repo isn't part of a standalone UnoDock checkout
-         (e.g. CI), so referencing it as a project would warn MSB9008. Override to
-         'false' locally to build against the sibling project. -->
-    <UseNuGetPackages Condition="'$(UseNuGetPackages)' == ''">true</UseNuGetPackages>
     <NoWarn>$(NoWarn);UNO0006</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>LeXtudio</Authors>
@@ -35,6 +30,7 @@
     <PackageProjectUrl>https://github.com/lextudio/UnoDock</PackageProjectUrl>
     <RepositoryUrl>https://github.com/lextudio/UnoDock</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <UseNuGetPackages>true</UseNuGetPackages>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
