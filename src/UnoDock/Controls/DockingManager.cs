@@ -282,6 +282,13 @@ namespace AvalonDock
 				Resources.MergedDictionaries.Add(_currentThemeDict);
 				AddToOverlayRoot(_currentThemeDict);
 			}
+
+			// Pane/tab controls resolve their theme brushes into visuals at template time and do not
+			// re-resolve when the merged dictionary is swapped (WinUI has no DynamicResource). Rebuild
+			// the layout controls so they re-run their theme application against the new dictionary,
+			// making a runtime theme switch take effect. The layout *model* is preserved.
+			if (IsLoaded && Layout != null && e.OldValue != null)
+				RebuildLayoutControls(Layout);
 		}
 
 		private void AddToOverlayRoot(ResourceDictionary dict)

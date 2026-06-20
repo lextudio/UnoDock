@@ -50,7 +50,19 @@ namespace AvalonDock.Controls
 		// null, the ContentPresenter shows the content directly (legacy UIElement documents).
 		public static readonly DependencyProperty SelectedContentTemplateProperty =
 			DependencyProperty.Register(nameof(SelectedContentTemplate), typeof(Microsoft.UI.Xaml.DataTemplate),
-				typeof(LayoutDocumentPaneControl), new PropertyMetadata(null));
+				typeof(LayoutDocumentPaneControl),
+				new PropertyMetadata(null, (d, _) => ((LayoutDocumentPaneControl)d).ApplyContentTemplate()));
+
+		private ContentPresenter _contentPresenter;
+
+		// Apply the selected-content template directly to the content presenter. A {TemplateBinding}
+		// in the control template does not reliably refresh ContentTemplate when the value is set after
+		// the template is applied (Uno), so we set it in code from OnApplyTemplate and the DP callback.
+		private void ApplyContentTemplate()
+		{
+			if (_contentPresenter != null)
+				_contentPresenter.ContentTemplate = SelectedContentTemplate;
+		}
 
 		public Microsoft.UI.Xaml.DataTemplate SelectedContentTemplate
 		{
@@ -68,6 +80,10 @@ namespace AvalonDock.Controls
 			SyncSelection();
 			_model.PropertyChanged += OnModelPropertyChanged;
 			SizeChanged += OnSizeChanged;
+			// Pull the document content template from the owning DockingManager (DocumentsSource MVVM).
+			// Done at creation and on Loaded so it lands regardless of property-set ordering.
+			ResolveContentTemplateFromManager();
+			Loaded += (_, _) => ResolveContentTemplateFromManager();
 			WireContentActiveChanged();
 			if (_model.Children is System.Collections.Specialized.INotifyCollectionChanged incc)
 				incc.CollectionChanged += (_, _) =>
@@ -96,6 +112,17 @@ namespace AvalonDock.Controls
 		private void OnContentIsActiveChanged(object sender, EventArgs e)
 			=> UpdateTabHighlights(_model.SelectedContent);
 
+		// Adopt the DockingManager.LayoutItemTemplate as the selected-content template so view-models
+		// fed via DocumentsSource render through it instead of falling back to ToString().
+		private void ResolveContentTemplateFromManager()
+		{
+			if (SelectedContentTemplate != null)
+				return;
+			var manager = (_model.Root as LayoutRoot)?.Manager;
+			if (manager?.LayoutItemTemplate != null)
+				SelectedContentTemplate = manager.LayoutItemTemplate;
+		}
+
 		[Bindable(false)]
 		public ILayoutElement Model => _model;
 
@@ -112,6 +139,8 @@ namespace AvalonDock.Controls
 			_accentLine = GetTemplateChild("BD") as Border;
 			_overflowButton = GetTemplateChild("PART_OverflowButton") as Button;
 			_overflowGlyph = GetTemplateChild("PART_OverflowGlyph") as Microsoft.UI.Xaml.Shapes.Path;
+			_contentPresenter = GetTemplateChild("PART_ContentPresenter") as ContentPresenter;
+			ApplyContentTemplate();
 			ApplyThemeResources();
 			if (_overflowButton != null)
 			{
