@@ -82,8 +82,9 @@ namespace AvalonDock
 
 		public Core.IRootDock DockLayout { get; set; }
 
-		public IEnumerable DocumentsSource { get; set; }
-
+		// DocumentsSource is a real DependencyProperty implemented in DockingManager.DocumentsSource.cs
+		// (ported from upstream AvalonDock): setting it syncs the source collection into the layout's
+		// LayoutDocumentPane as LayoutDocuments. AnchorablesSource remains a stub for now.
 		public IEnumerable AnchorablesSource { get; set; }
 
 		public int AutoHideDelay { get; set; }
@@ -133,12 +134,18 @@ namespace AvalonDock
 			if (oldLayout != null && oldLayout.Manager == this)
 				oldLayout.Manager = null;
 
+			// Re-home any DocumentsSource binding onto the new layout (mirrors upstream AvalonDock):
+			// the source may have been set before the layout, or the layout swapped under it.
+			DetachDocumentsSource(oldLayout, DocumentsSource);
+
 			if (newLayout != null)
 			{
 				newLayout.Manager = this;
 				if (IsLoaded) RebuildLayoutControls(newLayout);
 				newLayout.PropertyChanged += OnLayoutPropertyChanged;
 			}
+
+			AttachDocumentsSource(newLayout, DocumentsSource);
 		}
 
 		// ── Side panel DPs ────────────────────────────────────────────────────
@@ -1770,7 +1777,7 @@ namespace AvalonDock
 			if (model is LayoutDocumentPaneGroup dpg)
 				return new Controls.LayoutDocumentPaneGroupControl(dpg);
 			if (model is LayoutDocumentPane dp)
-				return new Controls.LayoutDocumentPaneControl(dp, true);
+				return new Controls.LayoutDocumentPaneControl(dp, true) { SelectedContentTemplate = LayoutItemTemplate };
 			if (model is LayoutAnchorablePane ap)
 				return new Controls.LayoutAnchorablePaneControl(ap, true);
 

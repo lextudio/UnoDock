@@ -45,6 +45,19 @@ namespace AvalonDock.Controls
 			set => SetValue(SelectedContentProperty, value);
 		}
 
+		// Template used to render SelectedContent when it is a view-model (DocumentsSource binding)
+		// rather than a UIElement. Fed from DockingManager.LayoutItemTemplate at creation time; when
+		// null, the ContentPresenter shows the content directly (legacy UIElement documents).
+		public static readonly DependencyProperty SelectedContentTemplateProperty =
+			DependencyProperty.Register(nameof(SelectedContentTemplate), typeof(Microsoft.UI.Xaml.DataTemplate),
+				typeof(LayoutDocumentPaneControl), new PropertyMetadata(null));
+
+		public Microsoft.UI.Xaml.DataTemplate SelectedContentTemplate
+		{
+			get => (Microsoft.UI.Xaml.DataTemplate)GetValue(SelectedContentTemplateProperty);
+			set => SetValue(SelectedContentTemplateProperty, value);
+		}
+
 		internal LayoutDocumentPaneControl(LayoutDocumentPane model, bool isVirtualizing)
 			: base(isVirtualizing)
 		{

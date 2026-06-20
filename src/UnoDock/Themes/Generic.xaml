@@ -186,7 +186,8 @@
                         <Border Grid.Row="1"
                                 Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
                             <ContentPresenter x:Name="PART_ContentPresenter"
-                                              Content="{TemplateBinding SelectedContent}" />
+                                              Content="{TemplateBinding SelectedContent}"
+                                              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
                         </Border>
                     </Grid>
                 </ControlTemplate>
