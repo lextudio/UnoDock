@@ -14,12 +14,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 
 using AvalonDock.Layout;
 
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Data;
 
 namespace AvalonDock
 {
@@ -49,6 +50,8 @@ namespace AvalonDock
 			set => SetValue(LayoutItemTemplateProperty, value);
 		}
 
+		private readonly Dictionary<LayoutDocument, PropertyChangedEventHandler> _documentTitleHandlers = new();
+
 		private void OnDocumentsSourceChanged(DependencyPropertyChangedEventArgs e)
 		{
 			DetachDocumentsSource(Layout, e.OldValue as IEnumerable);
@@ -67,8 +70,9 @@ namespace AvalonDock
 		{
 			var document = new LayoutDocument { Content = model };
 
-			// Bind the tab title to the model's Title property (no-op if it has none).
-			document.SetBinding(LayoutContent.TitleProperty, new Binding { Path = new PropertyPath("Title"), Source = model });
+			// LayoutDocument is a layout model, not a FrameworkElement, so it has no SetBinding
+			// on WinUI targets. Mirror the source model's Title manually instead.
+			AttachDocumentTitle(document, model);
 
 			var added = false;
 			if (LayoutUpdateStrategy != null)
@@ -83,6 +87,44 @@ namespace AvalonDock
 
 			LayoutUpdateStrategy?.AfterInsertDocument(Layout, document);
 			return document;
+		}
+
+		private void AttachDocumentTitle(LayoutDocument document, object model)
+		{
+			UpdateDocumentTitle(document, model);
+
+			if (model is not INotifyPropertyChanged notifier)
+				return;
+
+			PropertyChangedEventHandler handler = (_, e) =>
+			{
+				if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == "Title")
+					UpdateDocumentTitle(document, model);
+			};
+			_documentTitleHandlers[document] = handler;
+			notifier.PropertyChanged += handler;
+		}
+
+		private void DetachDocumentTitle(LayoutDocument document)
+		{
+			if (document.Content is INotifyPropertyChanged notifier &&
+				_documentTitleHandlers.Remove(document, out var handler))
+			{
+				notifier.PropertyChanged -= handler;
+			}
+		}
+
+		private static void UpdateDocumentTitle(LayoutDocument document, object model)
+		{
+			var title = GetModelTitle(model);
+			if (title is not null)
+				document.Title = title;
+		}
+
+		private static string GetModelTitle(object model)
+		{
+			var property = model.GetType().GetRuntimeProperty("Title");
+			return property?.GetValue(model)?.ToString();
 		}
 
 		private void AttachDocumentsSource(LayoutRoot layout, IEnumerable documentsSource)
@@ -110,6 +152,7 @@ namespace AvalonDock
 				.Where(d => documentsSource.OfType<object>().Contains(d.Content)).ToArray();
 			foreach (var document in toRemove)
 			{
+				DetachDocumentTitle(document);
 				document.Content = null;
 				(document.Parent as ILayoutContainer)?.RemoveChild(document);
 			}
@@ -128,6 +171,7 @@ namespace AvalonDock
 				var toRemove = Layout.Descendents().OfType<LayoutDocument>().Where(d => e.OldItems.Contains(d.Content)).ToArray();
 				foreach (var document in toRemove)
 				{
+					DetachDocumentTitle(document);
 					document.Content = null;
 					(document.Parent as ILayoutContainer)?.RemoveChild(document);
 				}
@@ -146,6 +190,7 @@ namespace AvalonDock
 				var toRemove = Layout.Descendents().OfType<LayoutDocument>().Where(d => !remaining.Contains(d.Content)).ToArray();
 				foreach (var document in toRemove)
 				{
+					DetachDocumentTitle(document);
 					document.Content = null;
 					(document.Parent as ILayoutContainer)?.RemoveChild(document);
 				}
