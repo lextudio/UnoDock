@@ -11,7 +11,7 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <EnableDefaultUnoItems>false</EnableDefaultUnoItems>
     <UnoFeatures>SkiaRenderer</UnoFeatures>
-    <NoWarn>$(NoWarn);UNO0006</NoWarn>
+    <NoWarn>$(NoWarn);UNO0006;CS1591</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>LeXtudio</Authors>
     <Company>LeXtudio</Company>

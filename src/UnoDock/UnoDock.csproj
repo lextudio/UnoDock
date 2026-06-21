@@ -89,36 +89,13 @@
   </ItemGroup>
 
   <!-- Phase 1: link the AvalonDock model layer (Layout/*) from the submodule.
-       LayoutElement.cs is excluded and forked (Layout/LayoutElement.cs) because
-       Uno's DependencyObject source generator requires DO-derived types to be
-       declared `partial` — the only change is the `partial` keyword. -->
-  <!-- Link upstream Layout files; exclude those forked into src/UnoDock/Layout/.
-       Forked files:
-         - LayoutElement.cs: added 'partial' (Uno DO generator requires it)
-         - LayoutPanel, LayoutRoot, LayoutContent, LayoutAnchorablePane,
-           LayoutDocumentPane, LayoutAnchorablePaneGroup, LayoutDocumentPaneGroup,
-           LayoutAnchorGroup, LayoutAnchorSide, LayoutAnchorableFloatingWindow,
-           LayoutDocumentFloatingWindow:
-           changed [ContentProperty("X")] → [ContentProperty(Name = "X")] so
-           the Uno XAML source generator recognises the content property. -->
+       All layout files are now linked directly from externals. The externals use
+       #if HAS_UNO guards for Uno-specific differences (partial keyword on LayoutElement,
+       ContentProperty(Name=...) form, SetCurrentValue shim). -->
   <ItemGroup>
     <Compile Include="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\**\*.cs"
-             Exclude="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\**\*.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutElement.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutPanel.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutRoot.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutContent.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorablePane.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutDocumentPane.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorablePaneGroup.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutDocumentPaneGroup.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorGroup.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorSide.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutAnchorableFloatingWindow.cs;
-                      ..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\LayoutDocumentFloatingWindow.cs"
+             Exclude="..\..\externals\AvalonDock\source\Components\AvalonDock\Layout\Serialization\**\*.cs"
              Link="Layout\%(RecursiveDir)%(Filename)%(Extension)" />
-    <!-- Forked layout files with patched ContentProperty / partial attributes. -->
-    <Compile Include="Layout\*.cs" />
   </ItemGroup>
 
   <!-- Themes: Theme base class + Generic.xaml resource dictionary. -->

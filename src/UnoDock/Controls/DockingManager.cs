@@ -385,7 +385,7 @@ namespace AvalonDock
 			// For Phase 4 we remove unconditionally if CanClose.
 			if (content == null || !content.CanClose) return;
 			if (content is LayoutDocument doc)
-				doc.Close();          // model removes itself from parent pane
+				doc.CloseDocument();  // CloseDocument() calls CloseInternal() directly; Close() would recurse back here
 			else if (content is LayoutAnchorable anc)
 				anc.Hide();           // anchorables hide rather than close by default
 		}
