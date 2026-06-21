@@ -7,7 +7,7 @@
     <PackageVersion Include="NUnit" Version="3.14.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
     <PackageVersion Include="LeXtudio.DevFlow.Agent.Uno" Version="0.1.13" />
-    <PackageVersion Include="LeXtudio.Windows" Version="0.8.3" />
+    <PackageVersion Include="LeXtudio.Windows" Version="0.8.4" />
     <PackageVersion Include="LeXtudio.UnoDock" Version="$(GitVersion_NuGetVersion)" />
     <PackageVersion Include="LeXtudio.UnoDock.Themes.VS2013" Version="$(GitVersion_NuGetVersion)" />
     <PackageVersion Include="LeXtudio.UnoDock.Themes.VS2010" Version="$(GitVersion_NuGetVersion)" />
