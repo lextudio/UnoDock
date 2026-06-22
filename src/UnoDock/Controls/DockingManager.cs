@@ -82,10 +82,10 @@ namespace AvalonDock
 
 		public Core.IRootDock DockLayout { get; set; }
 
-		// DocumentsSource is a real DependencyProperty implemented in DockingManager.DocumentsSource.cs
-		// (ported from upstream AvalonDock): setting it syncs the source collection into the layout's
-		// LayoutDocumentPane as LayoutDocuments. AnchorablesSource remains a stub for now.
-		public IEnumerable AnchorablesSource { get; set; }
+		// DocumentsSource / AnchorablesSource are real DependencyProperties implemented in
+		// DockingManager.DocumentsSource.cs / DockingManager.AnchorablesSource.cs (ported from
+		// upstream AvalonDock): setting them syncs the source collections into the layout as
+		// LayoutDocuments / LayoutAnchorables.
 
 		public int AutoHideDelay { get; set; }
 
@@ -134,9 +134,11 @@ namespace AvalonDock
 			if (oldLayout != null && oldLayout.Manager == this)
 				oldLayout.Manager = null;
 
-			// Re-home any DocumentsSource binding onto the new layout (mirrors upstream AvalonDock):
-			// the source may have been set before the layout, or the layout swapped under it.
+			// Re-home any DocumentsSource / AnchorablesSource binding onto the new layout (mirrors
+			// upstream AvalonDock): the source may have been set before the layout, or the layout
+			// swapped under it.
 			DetachDocumentsSource(oldLayout, DocumentsSource);
+			DetachAnchorablesSource(oldLayout, AnchorablesSource);
 
 			if (newLayout != null)
 			{
@@ -146,6 +148,7 @@ namespace AvalonDock
 			}
 
 			AttachDocumentsSource(newLayout, DocumentsSource);
+			AttachAnchorablesSource(newLayout, AnchorablesSource);
 		}
 
 		// ── Side panel DPs ────────────────────────────────────────────────────
@@ -1786,7 +1789,7 @@ namespace AvalonDock
 			if (model is LayoutDocumentPane dp)
 				return new Controls.LayoutDocumentPaneControl(dp, true) { SelectedContentTemplate = LayoutItemTemplate };
 			if (model is LayoutAnchorablePane ap)
-				return new Controls.LayoutAnchorablePaneControl(ap, true);
+				return new Controls.LayoutAnchorablePaneControl(ap, true) { SelectedContentTemplate = AnchorableContentTemplate };
 
 			// Floating windows — create the host control (shows in separate Uno Window).
 			if (model is LayoutAnchorableFloatingWindow afwModel)

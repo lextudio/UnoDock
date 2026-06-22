@@ -29,7 +29,7 @@ namespace AvalonDock.Controls
 		private Button _headerAutoHideButton;
 		private Button _headerCloseButton;
 		private Path _headerGrip;
-		private FrameworkElement _contentPresenter;
+		private ContentPresenter _contentPresenter;
 		private int _headerGripTileCount = -1;
 
 		private enum HeaderButtonState
@@ -61,6 +61,39 @@ namespace AvalonDock.Controls
 			set => SetValue(SelectedContentProperty, value);
 		}
 
+		// Template used to render SelectedContent when it is a tool-pane view-model (AnchorablesSource
+		// binding) rather than a UIElement. Fed from DockingManager.LayoutItemTemplate; when null the
+		// ContentPresenter shows the content directly. Mirrors LayoutDocumentPaneControl.
+		public static readonly DependencyProperty SelectedContentTemplateProperty =
+			DependencyProperty.Register(nameof(SelectedContentTemplate), typeof(DataTemplate),
+				typeof(LayoutAnchorablePaneControl),
+				new PropertyMetadata(null, (d, _) => ((LayoutAnchorablePaneControl)d).ApplyContentTemplate()));
+
+		public DataTemplate SelectedContentTemplate
+		{
+			get => (DataTemplate)GetValue(SelectedContentTemplateProperty);
+			set => SetValue(SelectedContentTemplateProperty, value);
+		}
+
+		// A {TemplateBinding} ContentTemplate does not reliably refresh on Uno when the value is set
+		// after the template is applied, so we set it in code from OnApplyTemplate and the DP callback.
+		private void ApplyContentTemplate()
+		{
+			if (_contentPresenter != null)
+				_contentPresenter.ContentTemplate = SelectedContentTemplate;
+		}
+
+		// Adopt the owning DockingManager's AnchorableContentTemplate so tool-pane view-models fed via
+		// AnchorablesSource render through it instead of ToString().
+		private void ResolveContentTemplateFromManager()
+		{
+			if (SelectedContentTemplate != null)
+				return;
+			var manager = (_model.Root as LayoutRoot)?.Manager;
+			if (manager?.AnchorableContentTemplate != null)
+				SelectedContentTemplate = manager.AnchorableContentTemplate;
+		}
+
 		internal LayoutAnchorablePaneControl(LayoutAnchorablePane model, bool isVirtualizing)
 			: base(isVirtualizing)
 		{
@@ -70,6 +103,10 @@ namespace AvalonDock.Controls
 			SyncSelection();
 			_model.PropertyChanged += OnModelPropertyChanged;
 			SizeChanged += OnSizeChanged;
+			// Pull the content template from the owning DockingManager (AnchorablesSource MVVM), at
+			// creation and on Loaded so it lands regardless of property-set ordering.
+			ResolveContentTemplateFromManager();
+			Loaded += (_, _) => ResolveContentTemplateFromManager();
 			// Log every IsSelected/IsActive change on each child so we can
 			// trace whether they change after UpdateTabHighlights runs.
 			foreach (var child in _model.Children)
@@ -126,7 +163,8 @@ namespace AvalonDock.Controls
 			_headerAutoHideButton = GetTemplateChild("PART_HeaderAutoHide") as Button;
 			_headerCloseButton = GetTemplateChild("PART_HeaderClose") as Button;
 			_tabStripHost = GetTemplateChild("PART_TabStripHost") as FrameworkElement;
-			_contentPresenter = GetTemplateChild("PART_ContentPresenter") as FrameworkElement;
+			_contentPresenter = GetTemplateChild("PART_ContentPresenter") as ContentPresenter;
+			ApplyContentTemplate();
 
 			if (_headerMenuButton != null)
 				_headerMenuButton.Click += OnHeaderMenuClick;

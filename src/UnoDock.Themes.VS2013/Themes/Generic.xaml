@@ -435,7 +435,8 @@
                                 Background="{StaticResource UnoDock_VS2013_ContentBackground}"
                                 Padding="4">
                             <ContentPresenter x:Name="PART_ContentPresenter"
-                                              Content="{TemplateBinding SelectedContent}" />
+                                              Content="{TemplateBinding SelectedContent}"
+                                              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
                         </Border>
                             </Grid>
                         </Border>
