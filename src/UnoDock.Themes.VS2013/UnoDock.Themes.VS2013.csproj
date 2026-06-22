@@ -74,7 +74,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Page Include="OverlayButtons.xaml" SubType="Designer" Generator="MSBuild:Compile" />
-    <Page Include="Themes\Generic.xaml" SubType="Designer" Generator="MSBuild:Compile" />
+    <!-- Explicit Link metadata pins the ms-appx resource path to the relative project
+         path. Without it, Uno's XAML generator derives the path by stripping
+         $(ProjectDir) from each file's absolute path using an ordinal comparison; when
+         the drive-letter casing of ProjectDir (C:\) differs from the file's resolved
+         FullPath (c:\) the strip fails and the full absolute path gets baked into the
+         ms-appx URI, so runtime Uri lookups like
+         ms-appx:///UnoDock.Themes.VS2013/OverlayButtons.xaml fail to resolve. -->
+    <Page Include="OverlayButtons.xaml" Link="OverlayButtons.xaml" SubType="Designer" Generator="MSBuild:Compile" />
+    <Page Include="Themes\Generic.xaml" Link="Themes\Generic.xaml" SubType="Designer" Generator="MSBuild:Compile" />
   </ItemGroup>
 </Project>
