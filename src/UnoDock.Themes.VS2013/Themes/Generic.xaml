@@ -307,7 +307,9 @@
                                 Background="{StaticResource UnoDock_VS2013_ContentBackground}"
                                 BorderBrush="{StaticResource UnoDock_VS2013_PanelBorderBrush}"
                                 BorderThickness="1,0,1,1">
-                            <ContentPresenter Content="{TemplateBinding SelectedContent}" />
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding SelectedContent}"
+                                              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
                         </Border>
                     </Grid>
                 </ControlTemplate>
