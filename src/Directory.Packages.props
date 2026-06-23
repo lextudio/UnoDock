@@ -11,5 +11,7 @@
     <PackageVersion Include="LeXtudio.UnoDock" Version="$(GitVersion_NuGetVersion)" />
     <PackageVersion Include="LeXtudio.UnoDock.Themes.VS2013" Version="$(GitVersion_NuGetVersion)" />
     <PackageVersion Include="LeXtudio.UnoDock.Themes.VS2010" Version="$(GitVersion_NuGetVersion)" />
+    <PackageVersion Include="Dirkster.AvalonDock.Core" Version="5.0.0-preview.87" />
+    <PackageVersion Include="Dirkster.AvalonDock.Serializer.Xml" Version="5.0.0-preview.87" />
   </ItemGroup>
 </Project>

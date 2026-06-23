@@ -53,14 +53,13 @@
     <ProjectReference Include="..\..\..\WindowsShims\src\LeXtudio.Windows\LeXtudio.Windows.csproj">
       <Aliases>global,winshims</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Core\AvalonDock.Core.csproj" />
+    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Serializer.Xml\AvalonDock.Serializer.Xml.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
     <PackageReference Include="LeXtudio.Windows" Aliases="global,winshims" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Core\AvalonDock.Core.csproj" />
-    <ProjectReference Include="..\..\externals\AvalonDock\source\Components\AvalonDock.Serializer.Xml\AvalonDock.Serializer.Xml.csproj" />
+    <PackageReference Include="Dirkster.AvalonDock.Core" />
+    <PackageReference Include="Dirkster.AvalonDock.Serializer.Xml" />
   </ItemGroup>
 
   <ItemGroup>
