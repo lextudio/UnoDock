@@ -25,6 +25,7 @@ namespace AvalonDock.Controls
 		// Mutable brush boxes: PointerEntered lambda reads [0] so the brush can be
 		// updated each time tab active-state changes without re-wiring events.
 		private readonly Dictionary<Button, Brush[]> _closeBtnHoverBrushes = new();
+		private readonly HashSet<Button> _wiredCloseBtns = new();
 
 		private const string KeyCloseBtnActiveHover = "UnoDock_VS2013_DocumentWellTabButtonSelectedActiveHoveredBackground";
 		private const string KeyCloseBtnInactiveHover = "UnoDock_VS2013_DocumentWellTabButtonUnselectedTabHoveredButtonHoveredBackground";
@@ -684,6 +685,24 @@ namespace AvalonDock.Controls
 				if (ReferenceEquals(_hoveredTabBorder, tabOuter))
 					_hoveredTabBorder = null;
 				UpdateTabHighlights(_model.SelectedContent);
+			};
+
+			WireCloseButtonClick(tabOuter);
+		}
+
+		private void WireCloseButtonClick(Border tabOuter)
+		{
+			var closeBtn = FindCloseButton(tabOuter);
+			if (closeBtn == null || !_wiredCloseBtns.Add(closeBtn))
+				return;
+
+			closeBtn.Click += (_, _) =>
+			{
+				if (tabOuter.Tag is LayoutDocument lc)
+				{
+					var mgr = _model.Root?.Manager;
+					mgr?.ExecuteCloseCommand(lc);
+				}
 			};
 		}
 

@@ -20,6 +20,11 @@ namespace AvalonDock.Controls
 				model.IsActive  = true;
 				model.IsSelected = true;
 			});
+
+			CloseCommand = new RelayCommand(() =>
+			{
+				manager.ExecuteCloseCommand(model);
+			}, () => model.CanClose);
 		}
 
 		public LayoutContent   Model   { get; }
@@ -27,6 +32,7 @@ namespace AvalonDock.Controls
 		public UIElement       View    { get; internal set; }
 
 		public ICommand ActivateCommand { get; }
+		public ICommand CloseCommand    { get; }
 	}
 
 	public class LayoutAnchorableItem : LayoutItem
