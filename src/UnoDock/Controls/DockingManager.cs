@@ -134,6 +134,9 @@ namespace AvalonDock
 			if (oldLayout != null && oldLayout.Manager == this)
 				oldLayout.Manager = null;
 
+			if (oldLayout != null)
+				oldLayout.ElementAdded -= OnLayoutElementAddedRepaint;
+
 			// Re-home any DocumentsSource / AnchorablesSource binding onto the new layout (mirrors
 			// upstream AvalonDock): the source may have been set before the layout, or the layout
 			// swapped under it.
@@ -145,6 +148,7 @@ namespace AvalonDock
 				newLayout.Manager = this;
 				if (IsLoaded) RebuildLayoutControls(newLayout);
 				newLayout.PropertyChanged += OnLayoutPropertyChanged;
+				newLayout.ElementAdded += OnLayoutElementAddedRepaint;
 			}
 
 			AttachDocumentsSource(newLayout, DocumentsSource);
@@ -1443,6 +1447,70 @@ namespace AvalonDock
 		}
 
 		/// <summary>
+		/// Work around an Uno SkiaSharp quirk: adding new (Skia-heavy) content to the dock —
+		/// e.g. a document editor — makes SVG images (Uno.UI.Svg.SvgCanvas) already hosted in
+		/// OTHER panes go blank. The elements keep correct bounds and stay visible, but stop
+		/// painting. Floating a pane and re-docking it fixes it because that forces a genuine
+		/// Collapsed/Visible (Unloaded→Loaded) cycle. Empirically, a two-phase Visibility
+		/// toggle (Collapsed now, Visible next tick) is the ONLY thing that makes SkiaSharp
+		/// re-rasterise a blanked SvgCanvas — re-assigning Source, InvalidateArrange, or
+		/// re-parenting do NOT. Enumerated inside the dispatcher callback so the new visual
+		/// tree is already attached.
+		/// </summary>
+		private DispatcherTimer _svgRepaintTimer;
+
+		// A new content element (e.g. a document editor) was attached to the layout.
+		// That is exactly when already-hosted SVG images in other panes go blank. The
+		// blank is caused by the NEW content's first Skia render, which happens a little
+		// AFTER this event — so repainting immediately is undone by that render. Instead
+		// coalesce onto a short one-shot timer and repaint once the new content has
+		// settled. Skipped until the manager is loaded (initial content renders fine).
+		private void OnLayoutElementAddedRepaint(object sender, LayoutElementEventArgs e)
+		{
+			if (!IsLoaded)
+				return;
+
+			if (_svgRepaintTimer == null)
+			{
+				_svgRepaintTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+				_svgRepaintTimer.Tick += (_, _) =>
+				{
+					_svgRepaintTimer.Stop();
+					ForceHostedSvgRepaint();
+				};
+			}
+
+			// Restart so a burst of additions collapses into a single delayed repaint.
+			_svgRepaintTimer.Stop();
+			_svgRepaintTimer.Start();
+		}
+
+		private void ForceHostedSvgRepaint()
+		{
+			var dispatcher = DispatcherQueue;
+			if (dispatcher == null)
+				return;
+
+			dispatcher.TryEnqueue(() =>
+			{
+				var svgImages = EnumerateVisualsOfType<Microsoft.UI.Xaml.Controls.Image>(this)
+					.Where(i => i.Source is Microsoft.UI.Xaml.Media.Imaging.SvgImageSource)
+					.ToList();
+				if (svgImages.Count == 0)
+					return;
+
+				foreach (var image in svgImages)
+					image.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+
+				dispatcher.TryEnqueue(() =>
+				{
+					foreach (var image in svgImages)
+						image.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+				});
+			});
+		}
+
+		/// <summary>
 		/// Remove empty panes and collapse single-child panels, then rebuild the visual tree.
 		/// Call after any structural layout mutation (float-out, drop, close).
 		/// </summary>
@@ -1774,6 +1842,10 @@ namespace AvalonDock
 						: new Controls.LayoutItem(content, this);
 				_layoutItems.Add(item);
 			}
+
+			// Re-parenting hosted content during the rebuild leaves Uno's SVG images
+			// blank until a genuine reload; force them to repaint once the tree settles.
+			ForceHostedSvgRepaint();
 		}
 
 		// ── CreateUIElementForModel ──────────────────────────────────────────
