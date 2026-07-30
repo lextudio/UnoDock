@@ -20,9 +20,18 @@ namespace AvalonDockTest
 		}
 
 		[Test]
-		public void DocumentPaneGroup_ShowsOnlyCenter_WhenDropIntoIsLegal_ForDocumentDrag()
+		public void DocumentPane_ShowsOnlyCenter_WhenDropIntoIsLegal_ForDocumentDrag()
 		{
-			var visibility = OverlayIndicatorVisibilityRules.ForDocumentPaneGroup(canDropInto: true, isAnchorableDrag: false);
+			var visibility = OverlayIndicatorVisibilityRules.ForDocumentPane(
+				canDropInto: true,
+				isAnchorableDrag: false,
+				paneHostedInFloatingWindow: false,
+				allowMixedOrientation: false,
+				parentOrientation: null,
+				visibleSiblingCount: 0,
+				isFirstVisible: true,
+				isLastVisible: true,
+				paneChildrenCount: 0);
 
 			Assert.That(visibility.CenterVisible, Is.True);
 			Assert.That(visibility.InnerLeft, Is.False);
@@ -32,11 +41,20 @@ namespace AvalonDockTest
 		}
 
 		[Test]
-		public void DocumentPaneGroup_HidesCenter_ForAnchorableDrag()
+		public void DocumentPane_HidesCenter_ForAnchorableDrag()
 		{
 			// An anchorable dragged over the document pane group cannot dock INTO it as a document
 			// tab, so the group center is hidden (ILSpy shows only the outer manager edge arrows).
-			var visibility = OverlayIndicatorVisibilityRules.ForDocumentPaneGroup(canDropInto: true, isAnchorableDrag: true);
+			var visibility = OverlayIndicatorVisibilityRules.ForDocumentPane(
+				canDropInto: true,
+				isAnchorableDrag: true,
+				paneHostedInFloatingWindow: false,
+				allowMixedOrientation: false,
+				parentOrientation: null,
+				visibleSiblingCount: 0,
+				isFirstVisible: true,
+				isLastVisible: true,
+				paneChildrenCount: 0);
 
 			Assert.That(visibility.CenterVisible, Is.False);
 			Assert.That(visibility.InnerLeft, Is.False);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -43,6 +44,41 @@ namespace AvalonDockTest.Integration
 
 		public Task<string> GetTreeAsync(CancellationToken ct = default)
 			=> GetStringAsync("/api/v1/ui/tree", ct);
+
+		public async Task<JsonElement> GetStatusAsync(CancellationToken ct = default)
+		{
+			var raw = await GetStringAsync("/api/v1/agent/status", ct).ConfigureAwait(false);
+			return JsonDocument.Parse(raw).RootElement.Clone();
+		}
+
+		public async Task<List<string>> ListActionsAsync(CancellationToken ct = default)
+		{
+			var raw = await GetStringAsync("/api/v1/invoke/actions", ct).ConfigureAwait(false);
+			using var doc = JsonDocument.Parse(raw);
+			var result = new List<string>();
+			if (doc.RootElement.ValueKind == JsonValueKind.Array)
+			{
+				foreach (var action in doc.RootElement.EnumerateArray())
+				{
+					if (action.ValueKind == JsonValueKind.String)
+						result.Add(action.GetString());
+					else if (action.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String)
+						result.Add(name.GetString());
+				}
+			}
+			else if (doc.RootElement.TryGetProperty("actions", out var actions) && actions.ValueKind == JsonValueKind.Array)
+			{
+				foreach (var action in actions.EnumerateArray())
+				{
+					if (action.ValueKind == JsonValueKind.String)
+						result.Add(action.GetString());
+					else if (action.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String)
+						result.Add(name.GetString());
+				}
+			}
+
+			return result;
+		}
 
 		/// <summary>
 		/// Invoke a custom [DevFlowAction] and return its string result (the wrapper's

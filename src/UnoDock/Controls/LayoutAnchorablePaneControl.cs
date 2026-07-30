@@ -491,7 +491,26 @@ namespace AvalonDock.Controls
 			DockLog.Write($"[SyncSelection] sel={sel?.Title}  " +
 				$"children=[{string.Join(",", _model.Children.Select(c => $"{c.Title}(sel={c.IsSelected},act={c.IsActive}"))}]");
 			if (SelectedItem != sel) SelectedItem = sel;
-			SelectedContent = sel?.Content;
+
+			// Never re-assign SelectedContent from a pane control that is no longer in the visual
+			// tree. The DockingManager can replace the control for a pane (e.g. when the layout is
+			// deserialized after an initial control was already created), but the replaced control
+			// stays subscribed to its model's PropertyChanged - nothing unsubscribes it - so it keeps
+			// running SyncSelection. Because LayoutContent.Content is a single shared UIElement, an
+			// assignment from such an orphan re-parents the pad OUT of the live pane's
+			// ContentPresenter and into the orphan's, leaving the pad blank on screen until
+			// something re-assigns it (clicking a tab in the live pane, which is why the content
+			// "reappeared" only after switching tabs).
+			// Skipping while not live is safe: OnApplyTemplate's Loaded handler calls SyncSelection
+			// again, so a control that is merely not-yet-attached still gets its content once live.
+			// IsLoaded is the only reliable discriminator here - a replaced control can keep a stale
+			// non-null Parent (observed: paneIsLoaded=False but paneParent=LayoutPanelControl), so
+			// testing Parent would let the orphan through.
+			if (IsLoaded)
+			{
+				SelectedContent = sel?.Content;
+			}
+
 			UpdateHeaderChrome(sel as LayoutAnchorable);
 			UpdateToolPaneChrome();
 			if (DispatcherQueue != null)
